@@ -271,19 +271,32 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
               <div className="border border-slate-200 rounded-xl p-5 bg-slate-50/50 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="bg-purple-600 text-white text-xs font-bold px-2.5 py-0.5 rounded">STEP 4</span>
-                  <span className="text-xs text-slate-400 font-medium">소요시간: 1분</span>
+                  <span className="text-xs text-slate-400 font-medium">소요시간: 1분 (중요)</span>
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">스텔스 모드(아이콘 은폐) & 부모 이메일 등록</h3>
+                <h3 className="font-bold text-slate-900 text-base">구글 앱 비밀번호(16자리) 등록 & Gmail 직접 발송</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  timesnooper 앱 설정에서 학부모 이메일(<code className="bg-slate-200 px-1 rounded text-purple-700 font-mono">jpark04092@gmail.com</code> 등)을 등록하고 <strong>[스텔스 모드 활성화]</strong>를 켭니다.
+                  중간 서버 없이 스마트폰에서 학부모님의 Gmail로 리포트를 100% 안전하게 직접 발송하기 위해 구글 16자리 앱 비밀번호를 등록합니다.
                 </p>
+                <div className="bg-white border border-purple-200 rounded-lg p-3 text-xs space-y-2 text-slate-700">
+                  <div className="font-bold text-purple-900 flex items-center gap-1.5">
+                    <Key className="w-4 h-4 text-purple-600" />
+                    <span>구글 16자리 앱 비밀번호 발급 순서:</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600">
+                    <li>스마트폰이나 PC에서 <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold">myaccount.google.com/apppasswords</a> 접속 (구글 로그인)</li>
+                    <li>앱 이름에 <strong>Timesnooper</strong> 입력 후 <strong>[만들기]</strong> 클릭</li>
+                    <li>화면에 노란색 박스로 뜨는 <strong>16자리 영문 코드</strong>(예: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono font-bold text-purple-700">abcd efgh ijkl mnop</code>) 복사</li>
+                    <li>자녀 폰의 timesnooper 앱 <strong>[구글 16자리 앱 비밀번호]</strong> 칸에 입력</li>
+                    <li><strong>[설정 저장]</strong> 클릭 후 <strong>[Gmail로 즉시 발송]</strong>을 눌러 정상 수신 확인!</li>
+                  </ol>
+                </div>
                 <div className="bg-purple-50 border border-purple-200 p-3 rounded-lg text-xs text-purple-900 space-y-1.5">
                   <div className="font-semibold flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-purple-600" />
-                    <span>이제 설치가 완료되었습니다!</span>
+                    <span>모든 설치와 리포트 연동이 완료되었습니다!</span>
                   </div>
                   <p className="text-purple-700 text-[11px] leading-relaxed">
-                    홈 화면에서 앱 아이콘이 사라지며, 아이가 재부팅하거나 앱을 강제 종료해도 1초 안에 자동 부활하여 매일 지정 시각에 이메일로 리포트를 자동 전송합니다.
+                    이제 <strong>[스텔스 모드 활성화]</strong>를 켜면 홈 화면에서 아이콘이 감춰지며, 매일 밤 지정 시각에 스마트폰이 스스로 Gmail 공식 서버(smtp.gmail.com)를 통해 학부모님 메일함으로 리포트를 100% 안전하게 직발송합니다.
                   </p>
                 </div>
                 <div className="bg-white border border-purple-200 rounded-lg p-2.5 text-[11px] text-slate-600 flex items-center justify-between gap-2">
@@ -436,21 +449,32 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
               <div className="border border-slate-200 rounded-xl p-5 space-y-3 bg-slate-50/50">
                 <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-indigo-600" />
-                  <span>수신 이메일 & 발송 시각 변경 방법</span>
+                  <span>수신 이메일 & 구글 앱 비밀번호 연동 방법</span>
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  기본 수신 이메일은 <strong className="text-slate-900">jpark04092@gmail.com</strong>, 기본 발송 시각은 <strong className="text-slate-900">22:00 (오후 10시)</strong>로 지정되어 있으며, <strong>[데일리 이메일 발송 센터]</strong> 탭에서 수신 이메일과 발송 시각을 손쉽게 변경 및 저장할 수 있습니다.
+                  수신 이메일(<strong className="text-slate-900">jpark04092@gmail.com</strong>)과 발신 계정, 그리고 <strong className="text-purple-700">16자리 구글 앱 비밀번호</strong>를 앱에 한 번만 등록해 두시면 외부 서버 없이 스마트폰에서 Gmail 공식 서버를 통해 리포트가 100% 확실하게 도착합니다.
                 </p>
-                <div className="space-y-2 pt-2">
+                <div className="bg-white border border-slate-200 p-3 rounded-lg text-xs space-y-1.5">
+                  <div className="font-bold text-slate-800 flex items-center gap-1">
+                    <Key className="w-3.5 h-3.5 text-blue-600" />
+                    <span>앱 설정 화면 필수 입력 3가지:</span>
+                  </div>
+                  <ul className="text-[11px] text-slate-600 space-y-1">
+                    <li>1. <strong>수신 학부모 이메일</strong>: 리포트를 받아볼 부모님 이메일</li>
+                    <li>2. <strong>발신용 Gmail 계정</strong>: 메일을 발송할 부모님 구글 계정</li>
+                    <li>3. <strong>16자리 앱 비밀번호</strong>: myaccount.google.com/apppasswords 에서 발급받은 코드</li>
+                  </ul>
+                </div>
+                <div className="space-y-2 pt-1">
                   <button
                     onClick={onGoToEmailCenter}
                     className="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold py-2.5 rounded-lg transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
                     <Mail className="w-4 h-4" />
-                    <span>실제 HTML 이메일 미리보기 & 발송 시각/이메일 설정</span>
+                    <span>실제 HTML 이메일 미리보기 & 발송 센터로 이동</span>
                   </button>
                   <p className="text-[11px] text-slate-500 text-center">
-                    * 정기 시각이 되기 전이라도 언제든 [즉시 발송] 버튼을 눌러 발송 테스트를 진행할 수 있습니다.
+                    * 앱에서 [Gmail로 즉시 발송]을 누르면 스마트폰에서 즉시 발송 테스트를 진행할 수 있습니다.
                   </p>
                 </div>
               </div>

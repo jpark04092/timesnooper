@@ -91,75 +91,73 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
       )}
 
       {/* SMTP Real Mailbox Connection Notice & Guide */}
-      <div className={`border rounded-2xl p-5 transition-all ${
-        smtpStatus?.configured 
-          ? 'bg-emerald-50/70 border-emerald-200' 
-          : 'bg-amber-50/70 border-amber-200'
-      }`}>
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${
-              smtpStatus?.configured ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-            }`}>
+            <div className="p-2.5 rounded-xl shrink-0 mt-0.5 bg-blue-600 text-white shadow-sm">
               <Mail className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-900">
-                  {smtpStatus?.configured ? '실제 이메일 수신함 전송 활성화됨' : '실제 이메일 수신함(Gmail 등) 전송 안내'}
+                <h3 className="text-sm font-extrabold text-slate-900">
+                  스마트폰 자체 Gmail 직발송 엔진 (16자리 앱 비밀번호 연동)
                 </h3>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  smtpStatus?.configured 
-                    ? 'bg-emerald-200 text-emerald-900' 
-                    : 'bg-amber-200 text-amber-900'
-                }`}>
-                  {smtpStatus?.configured ? 'SMTP 연동 완료' : '대시보드 실시간 프리뷰 모드'}
+                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> 중간 서버 없이 100% 도착
                 </span>
               </div>
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-                {smtpStatus?.configured
-                  ? `지정하신 ${smtpStatus.smtpUser} 발송 서버를 통해 ${recipientEmail} 실제 메일함으로 즉시 배달됩니다.`
-                  : `현재는 대시보드 내 실시간 HTML 렌더링 프리뷰와 로그로 정상 보관됩니다. 실제 ${recipientEmail} 수신함으로 메일을 직접 받아보시려면 SMTP 계정(Gmail 앱 비밀번호)을 등록해주세요.`}
+                자녀 스마트폰 앱 내에 <strong className="text-purple-700">구글 16자리 앱 비밀번호</strong>를 1회 입력하시면, 별도 외부 서버 없이 스마트폰 자체가 구글 공식 메일 서버(smtp.gmail.com:465 SSL)로 접속하여 학부모님 Gmail({recipientEmail})로 매일 밤 정각 리포트를 직발송합니다.
               </p>
             </div>
           </div>
 
           <button
             onClick={() => setShowSmtpGuide(!showSmtpGuide)}
-            className="flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white/80 border border-slate-200 px-3 py-2 rounded-xl shrink-0 transition"
+            className="flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-900 bg-white border border-blue-200 px-3.5 py-2 rounded-xl shrink-0 transition shadow-sm cursor-pointer"
           >
             <Key className="w-3.5 h-3.5 text-blue-600" />
-            <span>{showSmtpGuide ? '안내 접기' : '실제 메일 연동 방법'}</span>
+            <span>{showSmtpGuide ? '가이드 접기' : '구글 앱 비밀번호 16자리 발급법'}</span>
             {showSmtpGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         </div>
 
         {/* Expandable Setup Instructions */}
         {showSmtpGuide && (
-          <div className="mt-4 pt-4 border-t border-slate-200/80 text-xs text-slate-700 space-y-3 bg-white/60 p-4 rounded-xl">
+          <div className="pt-4 border-t border-blue-200/80 text-xs text-slate-700 space-y-3 bg-white/80 p-4 rounded-xl">
             <div className="font-bold text-slate-900 flex items-center gap-1.5">
               <Info className="w-4 h-4 text-blue-600" />
-              <span>Gmail 앱 비밀번호를 이용해 실제 메일함으로 수신하는 3단계 가이드</span>
+              <span>구글 16자리 앱 비밀번호 발급 및 스마트폰 앱 등록 방법</span>
             </div>
-            <ol className="list-decimal list-inside space-y-1.5 leading-relaxed text-slate-600">
-              <li>
-                <strong className="text-slate-800">Google 계정 보안 설정</strong>: <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="text-blue-600 underline font-medium">Google 계정 관리</a> &gt; [보안] &gt; [2단계 인증]이 켜져 있는지 확인합니다.
-              </li>
-              <li>
-                <strong className="text-slate-800">앱 비밀번호 생성</strong>: 2단계 인증 페이지 하단의 <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-blue-600 underline font-medium">[앱 비밀번호]</a>에서 앱 이름(예: Timesnooper)을 입력 후 생성된 <strong>16자리 비밀번호</strong>를 복사합니다.
-              </li>
-              <li>
-                <strong className="text-slate-800">AI Studio 환경변수 등록</strong>: 상단 <strong>Settings &gt; Secrets</strong> 메뉴에서 다음을 등록합니다:
-                <div className="mt-1 bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[11px] space-y-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-lg space-y-2">
+                <div className="font-bold text-blue-900 flex items-center gap-1">
+                  <Smartphone className="w-4 h-4 text-blue-600" />
+                  <span>스마트폰 앱 설정 (핵심 - 1회 등록)</span>
+                </div>
+                <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-slate-600 leading-relaxed">
+                  <li><a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-blue-600 underline font-bold">myaccount.google.com/apppasswords</a> 접속 (학부모 구글 계정 로그인)</li>
+                  <li>앱 이름에 <strong>Timesnooper</strong> 입력 후 [만들기] 클릭</li>
+                  <li>생성된 <strong>16자리 영문 코드</strong>(예: <code className="bg-white border px-1 rounded font-mono font-bold text-purple-700">abcd efgh ijkl mnop</code>) 복사</li>
+                  <li>자녀 폰의 timesnooper 앱의 <strong>[구글 16자리 앱 비밀번호]</strong> 란에 입력</li>
+                  <li><strong>[설정 저장]</strong> 후 <strong>[Gmail로 즉시 발송]</strong>을 누르면 1초 만에 학부모 메일함으로 직발송!</li>
+                </ol>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-lg space-y-2">
+                <div className="font-bold text-slate-900 flex items-center gap-1">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  <span>웹 대시보드에서도 메일함 발송을 원할 경우</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  웹 대시보드의 [리포트 즉시 발송 테스트 실행] 버튼으로도 실제 메일함에 쏘고 싶다면 상단 <strong>Settings &gt; Secrets</strong>에 다음을 등록합니다:
+                </p>
+                <div className="bg-slate-900 text-slate-100 p-2.5 rounded font-mono text-[10px] space-y-1">
                   <div>SMTP_USER = &quot;{recipientEmail}&quot;</div>
                   <div>SMTP_PASS = &quot;생성된16자리앱비밀번호&quot;</div>
-                  <div className="text-slate-400"># (선택) SMTP_HOST=&quot;smtp.gmail.com&quot;, SMTP_PORT=&quot;587&quot;</div>
                 </div>
-              </li>
-            </ol>
-            <p className="text-[11px] text-slate-500">
-              * 설정 후 테스트 메일 즉시 발송을 누르시면 실제 받은편지함(또는 스팸함)으로 HTML 리포트가 즉각 도착합니다!
-            </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
