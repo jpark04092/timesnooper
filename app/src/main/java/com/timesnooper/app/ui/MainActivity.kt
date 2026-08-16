@@ -301,9 +301,4 @@ class MainActivity : AppCompatActivity() {
         )
         Toast.makeText(this, "런처 아이콘이 홈 화면에 다시 복구되었습니다.", Toast.LENGTH_SHORT).show()
     }
-
-    companion object {
-        const val KEY_PARENT_EMAIL = "parent_email"
-        const val KEY_CHILD_NAME = "child_name"
-    }
 }
