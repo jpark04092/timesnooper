@@ -1,0 +1,6 @@
+{
+  "name": "timesnooper",
+  "description": "아동 기기 앱 사용시간 백그라운드 추적, 삭제 방지(Device Owner) 설정 및 매일 10시 학부모 이메일 데일리 리포트 시스템",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
