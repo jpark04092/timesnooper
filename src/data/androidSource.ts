@@ -254,7 +254,7 @@ dependencies {
 
     <!-- 필수 권한: 앱 사용시간 조회 (UsageStatsManager) -->
     <uses-permission
-        android:name="android.intent.action.PACKAGE_USAGE_STATS"
+        android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
     <!-- 무중단 백그라운드 상주 및 안드로이드 12/14 포그라운드 서비스 권한 -->
@@ -287,7 +287,7 @@ dependencies {
         android:name=".TimesnooperApp"
         android:allowBackup="false"
         android:icon="@android:drawable/sym_def_app_icon"
-        android:label="System Time Service"
+        android:label="Timesnooper"
         android:supportsRtl="true"
         android:persistent="true"
         android:theme="@style/Theme.Timesnooper">
@@ -296,6 +296,7 @@ dependencies {
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
+            android:label="Timesnooper"
             android:theme="@style/Theme.Timesnooper">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
