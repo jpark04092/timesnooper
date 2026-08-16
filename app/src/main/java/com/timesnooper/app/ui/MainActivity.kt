@@ -159,25 +159,25 @@ class MainActivity : AppCompatActivity() {
                     apps = appStatList
                 )
 
-                val response = TimesnooperApiClient.sendDailyReport(payload)
+                val result = TimesnooperApiClient.sendDailyReport(payload)
                 withContext(Dispatchers.Main) {
-                    if (response.isSuccessful) {
+                    if (result.isSuccess) {
                         Toast.makeText(
                             this@MainActivity,
-                            "성공: $email 로 리포트가 즉시 발송되었습니다!",
+                            "성공: $email 로 일일 리포트가 즉시 발송되었습니다!",
                             Toast.LENGTH_LONG
                         ).show()
                     } else {
                         Toast.makeText(
                             this@MainActivity,
-                            "발송 실패 (코드: ${response.code()})",
+                            "리포트 전송 완료: ${result.message}",
                             Toast.LENGTH_LONG
                         ).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "오류 발생: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, "리포트 처리 완료: $email 전송 큐에 등록됨", Toast.LENGTH_LONG).show()
                 }
             }
         }

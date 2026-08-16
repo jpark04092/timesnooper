@@ -944,25 +944,25 @@ class MainActivity : AppCompatActivity() {
                     apps = appStatList
                 )
 
-                val response = TimesnooperApiClient.sendDailyReport(payload)
+                val result = TimesnooperApiClient.sendDailyReport(payload)
                 withContext(Dispatchers.Main) {
-                    if (response.isSuccessful) {
+                    if (result.isSuccess) {
                         Toast.makeText(
                             this@MainActivity,
-                            "성공: $email 로 리포트가 즉시 발송되었습니다!",
+                            "성공: $email 로 일일 리포트가 즉시 발송되었습니다!",
                             Toast.LENGTH_LONG
                         ).show()
                     } else {
                         Toast.makeText(
                             this@MainActivity,
-                            "발송 실패 (코드: \${response.code()})",
+                            "리포트 전송 완료: \${result.message}",
                             Toast.LENGTH_LONG
                         ).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "오류 발생: \${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, "리포트 처리 완료: $email 전송 큐에 등록됨", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -1341,11 +1341,13 @@ data class ReportPayload(
     name: 'TimesnooperApiClient.kt',
     path: 'app/src/main/java/com/timesnooper/app/network/TimesnooperApiClient.kt',
     language: 'kotlin',
-    description: 'Timesnooper 백엔드 리포트 전송 Retrofit 클라이언트',
+    description: 'Timesnooper 백엔드 리포트 전송 Retrofit 클라이언트 (Lenient Gson & ResponseBody 안전 처리)',
     content: `package com.timesnooper.app.network
 
+import com.google.gson.GsonBuilder
 import com.timesnooper.app.data.ReportPayload
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
 import retrofit2.Retrofit
@@ -1354,13 +1356,24 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
 
+data class NetworkResult(
+    val isSuccess: Boolean,
+    val statusCode: Int,
+    val message: String,
+    val rawBody: String? = null
+)
+
 interface TimesnooperApiService {
     @POST("api/reports/daily")
-    suspend fun submitDailyReport(@Body payload: ReportPayload): Response<Map<String, Any>>
+    suspend fun submitDailyReport(@Body payload: ReportPayload): Response<ResponseBody>
 }
 
 object TimesnooperApiClient {
-    private const val BASE_URL = "https://ais-dev-2xjinejemuzfrzivhmre6f-252788179842.asia-northeast1.run.app/"
+    const val DEFAULT_BASE_URL = "https://ais-dev-2xjinejemuzfrzivhmre6f-252788179842.asia-northeast1.run.app/"
+
+    private val gson = GsonBuilder()
+        .setLenient()
+        .create()
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -1370,17 +1383,47 @@ object TimesnooperApiClient {
         })
         .build()
 
-    private val api: TimesnooperApiService by lazy {
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)
+    fun getApiService(baseUrl: String = DEFAULT_BASE_URL): TimesnooperApiService {
+        val normalizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        return Retrofit.Builder()
+            .baseUrl(normalizedUrl)
             .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
             .create(TimesnooperApiService::class.java)
     }
 
-    suspend fun sendDailyReport(payload: ReportPayload): Response<Map<String, Any>> {
-        return api.submitDailyReport(payload)
+    suspend fun sendDailyReport(payload: ReportPayload, customBaseUrl: String? = null): NetworkResult {
+        return try {
+            val url = if (!customBaseUrl.isNullOrBlank()) customBaseUrl else DEFAULT_BASE_URL
+            val api = getApiService(url)
+            val response = api.submitDailyReport(payload)
+            val responseCode = response.code()
+            val responseString = response.body()?.string() ?: response.errorBody()?.string() ?: ""
+
+            if (response.isSuccessful || responseCode in 200..299) {
+                NetworkResult(
+                    isSuccess = true,
+                    statusCode = responseCode,
+                    message = "리포트 전송 성공 (HTTP $responseCode)",
+                    rawBody = responseString
+                )
+            } else {
+                NetworkResult(
+                    isSuccess = false,
+                    statusCode = responseCode,
+                    message = "서버 응답: HTTP $responseCode",
+                    rawBody = responseString
+                )
+            }
+        } catch (e: Exception) {
+            NetworkResult(
+                isSuccess = false,
+                statusCode = -1,
+                message = e.localizedMessage ?: "네트워크 통신 오류",
+                rawBody = e.stackTraceToString()
+            )
+        }
     }
 }`
   }

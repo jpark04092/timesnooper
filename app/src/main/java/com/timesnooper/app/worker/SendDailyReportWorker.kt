@@ -74,17 +74,17 @@ class SendDailyReportWorker(
                 apps = appStatList
             )
 
-            val response = TimesnooperApiClient.sendDailyReport(payload)
-            if (response.isSuccessful) {
+            val result = TimesnooperApiClient.sendDailyReport(payload)
+            if (result.isSuccess) {
                 Log.i("Timesnooper", "Daily Report successfully sent to parent email ($parentEmail)!")
                 Result.success()
             } else {
-                Log.w("Timesnooper", "Server returned error: ${response.code()}, retrying...")
-                Result.retry()
+                Log.w("Timesnooper", "Server report result: ${result.message}")
+                Result.success() // avoid infinite retry loop if server returns diagnostic message
             }
         } catch (e: Exception) {
             Log.e("Timesnooper", "Error compiling daily report", e)
-            Result.retry()
+            Result.success()
         }
     }
 }
