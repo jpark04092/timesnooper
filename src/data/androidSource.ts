@@ -1372,10 +1372,18 @@ class StealthReceiver : BroadcastReceiver() {
             android:layout_marginBottom="8dp" />
 
         <Button
+            android:id="@+id/btnDeviceAdmin"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="2. 🛡️ 기기 관리자 활성화 (앱 임의 삭제 방지)"
+            android:backgroundTint="#0EA5E9"
+            android:layout_marginBottom="8dp" />
+
+        <Button
             android:id="@+id/btnBatteryExemption"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:text="2. 배터리 절전모드(Doze) 무제한 예외"
+            android:text="3. 배터리 절전모드(Doze) 무제한 예외"
             android:backgroundTint="#475569"
             android:layout_marginBottom="8dp" />
 
@@ -1383,7 +1391,7 @@ class StealthReceiver : BroadcastReceiver() {
             android:id="@+id/btnStartService"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:text="3. 감시 서비스 및 매일 리포트 알람 시작"
+            android:text="4. 감시 서비스 및 매일 리포트 알람 시작"
             android:backgroundTint="#059669"
             android:layout_marginBottom="16dp" />
 
@@ -1400,7 +1408,7 @@ class StealthReceiver : BroadcastReceiver() {
             android:id="@+id/btnStealthMode"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:text="4. 스텔스 모드 진입 (홈 화면 아이콘 숨김)"
+            android:text="5. 스텔스 모드 진입 (홈 화면 아이콘 숨김)"
             android:backgroundTint="#7C3AED"
             android:layout_marginBottom="8dp" />
 
@@ -1408,7 +1416,7 @@ class StealthReceiver : BroadcastReceiver() {
             android:id="@+id/btnUnhideIcon"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:text="5. 스텔스 해제 (홈 화면 아이콘 복구)"
+            android:text="6. 스텔스 해제 (홈 화면 아이콘 복구)"
             android:backgroundTint="#6366F1"
             android:layout_marginBottom="24dp" />
 

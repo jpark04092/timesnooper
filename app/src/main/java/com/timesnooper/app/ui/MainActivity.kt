@@ -1,6 +1,7 @@
 package com.timesnooper.app.ui
 
 import android.app.AppOpsManager
+import android.app.admin.DevicePolicyManager
 import android.app.usage.UsageStatsManager
 import android.content.ComponentName
 import android.content.Context
@@ -22,6 +23,7 @@ import com.timesnooper.app.data.AppStatEntry
 import com.timesnooper.app.data.ReportPayload
 import com.timesnooper.app.network.TimesnooperApiClient
 import com.timesnooper.app.receiver.DailyReportAlarmReceiver
+import com.timesnooper.app.receiver.TimesnooperAdminReceiver
 import com.timesnooper.app.service.TimesnooperMonitorService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -96,6 +98,10 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             Toast.makeText(this, "목록에서 'Timesnooper'를 찾아 '허용'을 켜주세요.", Toast.LENGTH_LONG).show()
+        }
+
+        findViewById<Button>(R.id.btnDeviceAdmin)?.setOnClickListener {
+            requestDeviceAdminPermission()
         }
 
         findViewById<Button>(R.id.btnBatteryExemption)?.setOnClickListener {
@@ -296,6 +302,28 @@ class MainActivity : AppCompatActivity() {
             )
         }
         return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun requestDeviceAdminPermission() {
+        try {
+            val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+            val adminComponent = ComponentName(this, TimesnooperAdminReceiver::class.java)
+            if (!dpm.isAdminActive(adminComponent)) {
+                val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+                    putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
+                    putExtra(
+                        DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                        "Timesnooper 자녀 안심 보호: 백그라운드 모니터링 유지 및 앱 무단 삭제 방지를 위해 기기 관리자 권한이 필요합니다."
+                    )
+                }
+                startActivity(intent)
+                Toast.makeText(this, "[이 기기 관리자 앱 활성화]를 터치하여 승인해주세요.", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "🛡️ 기기 관리자 권한이 이미 활성화되어 있어 앱 임의 삭제가 방지됩니다.", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "기기 관리자 설정 열기 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun requestBatteryOptimizationExemption() {
