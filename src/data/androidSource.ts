@@ -290,6 +290,7 @@ dependencies {
         android:label="Timesnooper"
         android:supportsRtl="true"
         android:persistent="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Timesnooper">
 
         <!-- 메인 설정 화면 (초기 권한 승인 후 런처 아이콘 숨김 처리 지원) -->
