@@ -35,10 +35,16 @@ class StealthReceiver : BroadcastReceiver() {
         Log.i("Timesnooper", "StealthReceiver triggered with action: $action")
 
         val mainActivityComponent = ComponentName(context, MainActivity::class.java)
+        val aliasComponent = ComponentName(context, "com.timesnooper.app.ui.LauncherAlias")
 
         when (action) {
             ACTION_UNHIDE_ICON -> {
-                // 1. 앱 프로세스 권한으로 MainActivity 컴포넌트를 즉시 활성화 (SecurityException 없음)
+                // 1. LauncherAlias 및 MainActivity 모두 즉시 활성화
+                context.packageManager.setComponentEnabledSetting(
+                    aliasComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
                 context.packageManager.setComponentEnabledSetting(
                     mainActivityComponent,
                     PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
@@ -54,13 +60,18 @@ class StealthReceiver : BroadcastReceiver() {
             }
 
             ACTION_HIDE_ICON -> {
-                // 런처 컴포넌트 비활성화 (아이콘 숨김)
+                // 런처 별칭(LauncherAlias)만 비활성화하여 아이콘을 숨김 (MainActivity는 내부 활성화 유지)
                 context.packageManager.setComponentEnabledSetting(
-                    mainActivityComponent,
+                    aliasComponent,
                     PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                     PackageManager.DONT_KILL_APP
                 )
-                Toast.makeText(context, "Timesnooper: 스텔스 모드가 활성화되었습니다.", Toast.LENGTH_LONG).show()
+                context.packageManager.setComponentEnabledSetting(
+                    mainActivityComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+                Toast.makeText(context, "Timesnooper: 스텔스 모드가 활성화되었습니다 (아이콘 숨김).", Toast.LENGTH_LONG).show()
             }
 
             ACTION_LAUNCH_UI, "android.provider.Telephony.SECRET_CODE" -> {

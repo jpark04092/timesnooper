@@ -293,17 +293,26 @@ dependencies {
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Timesnooper">
 
-        <!-- 메인 설정 화면 (초기 권한 승인 후 런처 아이콘 숨김 처리 지원) -->
+        <!-- 메인 설정 화면 (직접 호출 및 다이얼/리시버 실행 가능) -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
             android:label="Timesnooper"
-            android:theme="@style/Theme.Timesnooper">
+            android:theme="@style/Theme.Timesnooper" />
+
+        <!-- 런처 아이콘 전용 alias: 스텔스 모드 시 이 alias만 비활성화하여 홈/앱스에서 깔끔히 제거 -->
+        <activity-alias
+            android:name=".ui.LauncherAlias"
+            android:targetActivity=".ui.MainActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@android:drawable/sym_def_app_icon"
+            android:label="Timesnooper">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <!-- 핵심 1: 무중단 백그라운드 모니터링 포그라운드 서비스 -->
         <service
@@ -1012,29 +1021,50 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enableStealthMode() {
-        val componentName = ComponentName(this, MainActivity::class.java)
-        packageManager.setComponentEnabledSetting(
-            componentName,
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        Toast.makeText(this, "런처 아이콘이 숨겨졌습니다. 백그라운드에서 상시 작동합니다.", Toast.LENGTH_SHORT).show()
-        finish()
+        try {
+            val aliasComponent = ComponentName(this, LAUNCHER_ALIAS_CLASS)
+            packageManager.setComponentEnabledSetting(
+                aliasComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP
+            )
+            val mainComponent = ComponentName(this, MainActivity::class.java)
+            packageManager.setComponentEnabledSetting(
+                mainComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            )
+            Toast.makeText(this, "스텔스 모드 가동: 런처 아이콘이 숨겨집니다.\\n다시 열기: 다이얼 *#*#8463#*#* 또는 ADB", Toast.LENGTH_LONG).show()
+            finish()
+        } catch (e: Exception) {
+            Toast.makeText(this, "스텔스 설정 오류: \${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun disableStealthMode() {
-        val componentName = ComponentName(this, MainActivity::class.java)
-        packageManager.setComponentEnabledSetting(
-            componentName,
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        Toast.makeText(this, "런처 아이콘이 홈 화면에 다시 복구되었습니다.", Toast.LENGTH_SHORT).show()
+        try {
+            val aliasComponent = ComponentName(this, LAUNCHER_ALIAS_CLASS)
+            packageManager.setComponentEnabledSetting(
+                aliasComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            )
+            val mainComponent = ComponentName(this, MainActivity::class.java)
+            packageManager.setComponentEnabledSetting(
+                mainComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            )
+            Toast.makeText(this, "런처 아이콘이 홈 화면에 다시 복구되었습니다.", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "복구 오류: \${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     companion object {
         const val KEY_PARENT_EMAIL = "parent_email"
         const val KEY_CHILD_NAME = "child_name"
+        const val LAUNCHER_ALIAS_CLASS = "com.timesnooper.app.ui.LauncherAlias"
     }
 }`
   },
@@ -1061,10 +1091,16 @@ class StealthReceiver : BroadcastReceiver() {
         Log.i("Timesnooper", "StealthReceiver triggered with action: \$action")
 
         val mainActivityComponent = ComponentName(context, MainActivity::class.java)
+        val aliasComponent = ComponentName(context, "com.timesnooper.app.ui.LauncherAlias")
 
         when (action) {
             ACTION_UNHIDE_ICON -> {
-                // 앱 프로세스 권한으로 MainActivity 컴포넌트를 즉시 활성화 (SecurityException 없음)
+                // 1. LauncherAlias 및 MainActivity 컴포넌트를 즉시 활성화 (SecurityException 없음)
+                context.packageManager.setComponentEnabledSetting(
+                    aliasComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
                 context.packageManager.setComponentEnabledSetting(
                     mainActivityComponent,
                     PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
@@ -1080,11 +1116,16 @@ class StealthReceiver : BroadcastReceiver() {
 
             ACTION_HIDE_ICON -> {
                 context.packageManager.setComponentEnabledSetting(
-                    mainActivityComponent,
+                    aliasComponent,
                     PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                     PackageManager.DONT_KILL_APP
                 )
-                Toast.makeText(context, "Timesnooper: 스텔스 모드가 활성화되었습니다.", Toast.LENGTH_LONG).show()
+                context.packageManager.setComponentEnabledSetting(
+                    mainActivityComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+                Toast.makeText(context, "Timesnooper: 스텔스 모드가 활성화되었습니다 (아이콘 숨김).", Toast.LENGTH_LONG).show()
             }
 
             ACTION_LAUNCH_UI, "android.provider.Telephony.SECRET_CODE" -> {

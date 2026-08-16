@@ -544,6 +544,36 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
               </div>
             </div>
 
+            {/* Issue Explanation Callout: Icon not disappearing but app not launching */}
+            <div className="border border-rose-200 bg-rose-50/70 rounded-xl p-4 space-y-2.5">
+              <div className="flex items-center gap-2 text-rose-900 font-bold text-sm">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>⚠️ [원인 분석 & 해결] &quot;스텔스 모드를 켰는데 앱은 안 들어가지고 아이콘은 남아있는 현상&quot;</span>
+              </div>
+              <div className="text-xs text-rose-950 leading-relaxed space-y-2 pl-6">
+                <div>
+                  <strong>1. 증상의 원인:</strong>
+                  <p className="mt-0.5 text-slate-700">
+                    안드로이드 OS(특히 삼성 Galaxy One UI)에서 <code className="bg-rose-100 text-rose-900 px-1 rounded font-mono">MainActivity</code> 본체를 직접 비활성화하면, 런처 앱(홈 화면)이 캐시를 즉시 비우지 않고 바탕화면 슬롯에 잔상 아이콘을 남겨둡니다. 이 잔상 아이콘을 터치하면 앱 본체가 꺼져 있어 <strong>&quot;앱은 실행되지 않는데 아이콘은 그대로 보이는&quot;</strong> 상태가 됩니다.
+                  </p>
+                </div>
+                <div>
+                  <strong>2. Timesnooper의 해결 아키텍처 (&lt;activity-alias&gt; 분리):</strong>
+                  <p className="mt-0.5 text-slate-700">
+                    앱 본체(<code className="bg-slate-100 px-1 rounded font-mono text-blue-700">MainActivity</code>)와 런처 아이콘 진입점(<code className="bg-slate-100 px-1 rounded font-mono text-purple-700">LauncherAlias</code>)을 완벽히 분리했습니다. 스텔스 모드 시 런처 별칭만 끄므로 런처(앱스 목록)에서 즉시 아이콘이 사라지고, 본체는 살아있어 시크릿 다이얼이나 ADB로 언제든 100% 정상 재진입할 수 있습니다.
+                  </p>
+                </div>
+                <div className="bg-white border border-rose-200 rounded-lg p-3 space-y-1.5 text-slate-800">
+                  <div className="font-bold text-rose-900">💡 혹시 이전 버전의 잔상 아이콘이 홈 화면에 남아있다면 즉시 해결하는 방법:</div>
+                  <ul className="list-disc list-inside text-[11px] space-y-1 text-slate-700">
+                    <li><strong>삼성 런처 새로고침:</strong> 홈 화면의 빈 공간을 길게 눌러 홈 화면 편집 모드로 들어갔다가 뒤로가기를 누르거나, 기기를 1회 화면 잠금/해제합니다.</li>
+                    <li><strong>바탕화면 잔상 바로가기:</strong> 앱스 목록에서는 이미 사라졌으나 바탕화면에 고정해 둔 바로가기는 꾹 눌러 <strong>[홈 화면에서 삭제]</strong>를 누르시면 됩니다. (앱 삭제가 아니라 바로가기만 제거됨)</li>
+                    <li><strong>ADB 명령어로 즉시 동기화:</strong> <code className="bg-slate-100 px-1 font-mono text-blue-700">adb shell am broadcast -a com.timesnooper.app.ACTION_HIDE_ICON -p com.timesnooper.app</code></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
             {/* Security Exception Explanation Callout */}
             <div className="border border-amber-300 bg-amber-50/70 rounded-xl p-4 space-y-2">
               <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">

