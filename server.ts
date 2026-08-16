@@ -33,11 +33,10 @@ interface SmtpDispatchResult {
 }
 
 async function dispatchRealEmail(to: string, subject: string, html: string): Promise<SmtpDispatchResult> {
-  const host = process.env.SMTP_HOST || (process.env.SMTP_USER?.includes('@gmail.com') ? 'smtp.gmail.com' : '');
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const port = Number(process.env.SMTP_PORT) || 587;
-  const from = process.env.SMTP_FROM || user || `Timesnooper 데일리 리포트 <${user || 'noreply@timesnooper.local'}>`;
+  const user = process.env.SMTP_USER?.trim();
+  // Strip all whitespaces and quotation marks from app password (handles "abcd efgh ijkl mnop" or "abcdefghijklmnop")
+  const rawPass = process.env.SMTP_PASS || '';
+  const pass = rawPass.replace(/[\s"'-]+/g, '').trim();
 
   if (!user || !pass) {
     console.log(`[SMTP Not Configured] To: ${to}, Subject: ${subject}`);
@@ -47,16 +46,32 @@ async function dispatchRealEmail(to: string, subject: string, html: string): Pro
     };
   }
 
+  const host = process.env.SMTP_HOST?.trim();
+  const isGmail = !host || host === 'smtp.gmail.com' || user.toLowerCase().includes('@gmail.com');
+  const from = process.env.SMTP_FROM?.trim() || `Timesnooper 일일보고서 <${user}>`;
+
   try {
-    const transporter = nodemailer.createTransport({
-      host: host || 'smtp.gmail.com',
-      port,
-      secure: port === 465,
-      auth: {
-        user,
-        pass,
-      },
-    });
+    let transporter: nodemailer.Transporter;
+    if (isGmail) {
+      transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user,
+          pass,
+        },
+      });
+    } else {
+      const port = Number(process.env.SMTP_PORT) || 587;
+      transporter = nodemailer.createTransport({
+        host: host || 'smtp.gmail.com',
+        port,
+        secure: port === 465,
+        auth: {
+          user,
+          pass,
+        },
+      });
+    }
 
     const info = await transporter.sendMail({
       from,
@@ -65,18 +80,22 @@ async function dispatchRealEmail(to: string, subject: string, html: string): Pro
       html,
     });
 
-    console.log(`[SMTP Success] Sent to ${to}, ID: ${info.messageId}`);
+    console.log(`[SMTP Success] Sent email to ${to}, MessageID: ${info.messageId}`);
     return {
       sentToSmtp: true,
       messageId: info.messageId,
-      statusText: `실제 메일함 (${to}) 발송 완료`
+      statusText: `실제 메일함 (${to}) 발송 완료 (ID: ${info.messageId?.slice(0, 14)}...)`
     };
   } catch (err: any) {
-    console.error('[SMTP Transport Error]:', err);
+    console.error('[SMTP Transport Error]:', err?.message || err);
+    let userFriendlyErr = err?.message || '인증 실패';
+    if (userFriendlyErr.includes('535') || userFriendlyErr.toLowerCase().includes('badcredentials') || userFriendlyErr.toLowerCase().includes('username and password not accepted')) {
+      userFriendlyErr = 'Gmail 앱 비밀번호 인증 실패: 16자리 앱비밀번호가 올바른지 확인해주세요.';
+    }
     return {
       sentToSmtp: false,
-      error: err.message,
-      statusText: `SMTP 발송 실패 (${err.message})`
+      error: userFriendlyErr,
+      statusText: `SMTP 전송 실패: ${userFriendlyErr}`
     };
   }
 }
@@ -407,11 +426,15 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
 
     reportLogs.unshift(newLog);
 
+    const message = smtpResult.sentToSmtp
+      ? `[실제 메일 발송 성공] ${emailToUse} (수신함)으로 일일 보고서가 정상 전송되었습니다!`
+      : (smtpResult.error
+          ? `[SMTP 전송 실패 알림] ${smtpResult.error}`
+          : `[대시보드 리포트 등록] ${emailToUse} 대상 리포트가 대시보드에 정상 보관되었습니다.`);
+
     return res.json({
       success: true,
-      message: smtpResult.sentToSmtp
-        ? `[실제 메일 발송 성공] ${emailToUse} (수신함)으로 일일 보고서가 정상 전송되었습니다!`
-        : `[대시보드 리포트 생성 완료] ${emailToUse} 대상 리포트가 대시보드 및 실시간 프리뷰에 등록되었습니다. (SMTP 실제 발송 연동 안내: 설정 > Secrets에 SMTP_USER/SMTP_PASS 입력 시 실제 메일함으로 즉시 발송됩니다)`,
+      message,
       log: newLog,
       smtpResult
     });
