@@ -3,12 +3,6 @@ name: Build Timesnooper Android APK
 on:
   push:
     branches: [ "main", "master" ]
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - 'build.gradle*'
-      - 'settings.gradle*'
-      - '.github/workflows/build-apk.yml'
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
@@ -35,21 +29,23 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 17 (Temurin)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Grant Execute Permission for Gradle Wrapper
         run: |
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
           else
-            echo "gradlew not found at root, checking subdirectories or initializing..."
+            echo "gradlew not found, will use system gradle"
           fi
 
-      # Build Debug APK
+      # 1. Debug APK 빌드 (설치 및 테스트용)
       - name: Build Debug APK
         if: ${{ github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'all' || github.event_name == 'push' || github.event_name == 'pull_request' }}
         run: |
@@ -59,33 +55,36 @@ jobs:
             gradle assembleDebug --stacktrace
           fi
 
-      # Build Release APK (if requested)
+      # 2. Release APK 빌드
       - name: Build Release APK
         if: ${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
         run: |
           if [ -f "./gradlew" ]; then
-            ./gradlew assembleRelease --stacktrace || echo "Release build completed or unsigned output created"
+            ./gradlew assembleRelease --stacktrace || echo "Release build step completed"
           else
-            gradle assembleRelease --stacktrace || echo "Release build completed or unsigned output created"
+            gradle assembleRelease --stacktrace || echo "Release build step completed"
           fi
 
-      # Upload Debug APK Artifact
-      - name: Upload Debug APK
+      # 3. Debug APK 아티팩트 업로드
+      - name: Upload Debug APK Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: timesnooper-debug-apk
           path: |
             app/build/outputs/apk/debug/*.apk
             **/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
           retention-days: 30
 
-      # Upload Release APK / Bundle Artifact
-      - name: Upload Release APK
-        if: ${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
+      # 4. Release APK 아티팩트 업로드
+      - name: Upload Release APK Artifact
+        if: ${{ (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all') }}
         uses: actions/upload-artifact@v4
         with:
           name: timesnooper-release-apk
           path: |
             app/build/outputs/apk/release/*.apk
             **/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
           retention-days: 30

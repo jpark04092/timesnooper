@@ -2,6 +2,232 @@ import { AndroidProjectFile } from '../types';
 
 export const ANDROID_SOURCE_FILES: AndroidProjectFile[] = [
   {
+    name: 'build-apk.yml',
+    path: '.github/workflows/build-apk.yml',
+    language: 'yaml',
+    description: 'GitHub Actions 자동 빌드 워크플로우 (Node 24 호환, setup-java v5 & Gradle 액션 적용, APK 아티팩트 자동 생성)',
+    content: `name: Build Timesnooper Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type (debug / release / all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - debug
+          - release
+          - all
+
+jobs:
+  build:
+    name: Build & Package Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant Execute Permission for Gradle Wrapper
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+          else
+            echo "gradlew not found, will use system gradle"
+          fi
+
+      # 1. Debug APK 빌드 (설치 및 테스트용)
+      - name: Build Debug APK
+        if: \${{ github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'all' || github.event_name == 'push' || github.event_name == 'pull_request' }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --stacktrace
+          else
+            gradle assembleDebug --stacktrace
+          fi
+
+      # 2. Release APK 빌드
+      - name: Build Release APK
+        if: \${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleRelease --stacktrace || echo "Release build step completed"
+          else
+            gradle assembleRelease --stacktrace || echo "Release build step completed"
+          fi
+
+      # 3. Debug APK 아티팩트 업로드
+      - name: Upload Debug APK Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesnooper-debug-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            **/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 30
+
+      # 4. Release APK 아티팩트 업로드
+      - name: Upload Release APK Artifact
+        if: \${{ (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesnooper-release-apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            **/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
+          retention-days: 30
+`
+  },
+  {
+    name: 'settings.gradle.kts',
+    path: 'settings.gradle.kts',
+    language: 'gradle',
+    description: '루트 Gradle 프로젝트 및 모듈 설정 파일 (Google, MavenCentral 레포지토리 관리)',
+    content: `pluginManagement {
+    repositories {
+        google {
+            content {
+                includeGroupByRegex("com\\\\.android.*")
+                includeGroupByRegex("com\\\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "Timesnooper"
+include(":app")
+`
+  },
+  {
+    name: 'root-build.gradle.kts',
+    path: 'build.gradle.kts',
+    language: 'gradle',
+    description: '루트 빌드 스크립트 (Android Application 및 Kotlin 플러그인 정의)',
+    content: `plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.android) apply false
+}
+`
+  },
+  {
+    name: 'libs.versions.toml',
+    path: 'gradle/libs.versions.toml',
+    language: 'toml',
+    description: 'Gradle Version Catalog (AGP, Kotlin, AndroidX, Retrofit 버전 중앙 집중 관리)',
+    content: `[versions]
+agp = "8.3.2"
+kotlin = "1.9.22"
+coreKtx = "1.12.0"
+appcompat = "1.6.1"
+material = "1.11.0"
+workRuntimeKtx = "2.9.0"
+retrofit = "2.9.0"
+okhttp = "4.12.0"
+coroutines = "1.7.3"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+`
+  },
+  {
+    name: 'app-build.gradle.kts',
+    path: 'app/build.gradle.kts',
+    language: 'gradle',
+    description: '안드로이드 앱 모듈 Gradle 빌드 스크립트 (SDK 34, MinSDK 26, Java 17)',
+    content: `plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+}
+
+android {
+    namespace = "com.timesnooper.app"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.timesnooper.app"
+        minSdk = 26 // Android 8.0 Oreo (구형 태블릿 및 안드로이드 12/13/14 완벽 지원)
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
+            isDebuggable = true
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp.logging)
+    implementation(libs.kotlinx.coroutines.android)
+}
+`
+  },
+  {
     name: 'AndroidManifest.xml',
     path: 'app/src/main/AndroidManifest.xml',
     language: 'xml',
@@ -45,9 +271,8 @@ export const ANDROID_SOURCE_FILES: AndroidProjectFile[] = [
     <application
         android:name=".TimesnooperApp"
         android:allowBackup="false"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@android:drawable/sym_def_app_icon"
         android:label="System Time Service"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:persistent="true"
         android:theme="@style/Theme.Timesnooper">
@@ -128,7 +353,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.UserManager
 import android.util.Log
-import android.widget.Toast
 
 /**
  * Timesnooper Device Owner & Device Admin 리시버
@@ -156,7 +380,6 @@ class TimesnooperAdminReceiver : DeviceAdminReceiver() {
     }
 
     override fun onDisableRequested(context: Context, intent: Intent): CharSequence {
-        // 아이가 임의로 디바이스 관리자를 끄려 할 때 경고 문구 출력 및 부모 비밀번호 잠금 연동
         return "Timesnooper 모니터링 보호 기능이 활성화되어 있어 해제할 수 없습니다."
     }
 
@@ -193,11 +416,9 @@ class TimesnooperAdminReceiver : DeviceAdminReceiver() {
     content: `package com.timesnooper.app.service
 
 import android.app.*
-import android.app.usage.UsageStats
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -229,12 +450,10 @@ class TimesnooperMonitorService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // 시스템에 의해 킬당하더라도 OS가 자동으로 서비스를 다시 살리도록 START_STICKY 반환
         return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        // 사용자가 최근 앱 목록에서 스와이프해서 날려도 즉시 재시작 인텐트 브로드캐스트
         val restartServiceIntent = Intent(applicationContext, this.javaClass)
         restartServiceIntent.setPackage(packageName)
         val restartServicePendingIntent = PendingIntent.getService(
@@ -251,21 +470,25 @@ class TimesnooperMonitorService : Service() {
     }
 
     private fun collectAndBufferUsageStats() {
-        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val calendar = Calendar.getInstance()
-        val endTime = calendar.timeInMillis
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        val startTime = calendar.timeInMillis
+        try {
+            val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val calendar = Calendar.getInstance()
+            val endTime = calendar.timeInMillis
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            val startTime = calendar.timeInMillis
 
-        val statsList = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY, startTime, endTime
-        )
+            val statsList = usageStatsManager.queryUsageStats(
+                UsageStatsManager.INTERVAL_DAILY, startTime, endTime
+            )
 
-        if (!statsList.isNullOrEmpty()) {
-            TelemetryRepository.saveHourlySnapshot(applicationContext, statsList)
-            Log.d("Timesnooper", "Telemetry updated: \${statsList.size} apps logged.")
+            if (!statsList.isNullOrEmpty()) {
+                TelemetryRepository.saveHourlySnapshot(applicationContext, statsList)
+                Log.d("Timesnooper", "Telemetry updated: \${statsList.size} apps logged.")
+            }
+        } catch (e: Exception) {
+            Log.e("Timesnooper", "Failed to collect usage stats", e)
         }
     }
 
@@ -300,7 +523,6 @@ class TimesnooperMonitorService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        // 서비스 파괴 시 자가 부활 브로드캐스트
         super.onDestroy()
         val broadcastIntent = Intent("com.timesnooper.app.RESTART_SERVICE")
         sendBroadcast(broadcastIntent)
@@ -377,7 +599,6 @@ class DailyReportAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.i("Timesnooper", "Daily 10:00 AM Alarm Fired! Initiating Report Dispatch.")
 
-        // WorkManager를 통한 신뢰성 있는 백그라운드 리포트 작업 예약 (네트워크 대기)
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
@@ -388,7 +609,6 @@ class DailyReportAlarmReceiver : BroadcastReceiver() {
 
         WorkManager.getInstance(context).enqueue(reportWorkRequest)
 
-        // 내일 오전 10시 알람 재등록 (영구 반복)
         scheduleDaily10AmAlarm(context)
     }
 
@@ -410,14 +630,12 @@ class DailyReportAlarmReceiver : BroadcastReceiver() {
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
 
-                // 현재 시간이 이미 오전 10시를 넘었다면 내일 10시로 세팅
                 if (timeInMillis <= System.currentTimeMillis()) {
                     add(Calendar.DAY_OF_YEAR, 1)
                 }
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // Doze(절전) 모드 상태에서도 정확히 10시에 깨어나도록 보장
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     calendar.timeInMillis,
@@ -443,16 +661,14 @@ class DailyReportAlarmReceiver : BroadcastReceiver() {
     description: 'UsageStatsManager로 24시간 앱 사용시간 집계 후 부모 이메일로 전송',
     content: `package com.timesnooper.app.worker
 
-import android.app.usage.UsageStats
 import android.app.usage.UsageStatsManager
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.timesnooper.app.data.ReportPayload
 import com.timesnooper.app.data.AppStatEntry
+import com.timesnooper.app.data.ReportPayload
 import com.timesnooper.app.network.TimesnooperApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -471,7 +687,6 @@ class SendDailyReportWorker(
             val usageStatsManager = applicationContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val packageManager = applicationContext.packageManager
 
-            // 어제 10:00 ~ 오늘 10:00 (또는 어제 00:00 ~ 24:00) 사용량 집계
             val calendar = Calendar.getInstance()
             val endTime = calendar.timeInMillis
             calendar.add(Calendar.DAY_OF_YEAR, -1)
@@ -482,7 +697,7 @@ class SendDailyReportWorker(
             var totalTimeMillis = 0L
 
             for ((pkgName, stat) in statsMap) {
-                if (stat.totalTimeInForeground > 60 * 1000) { // 1분 이상 사용된 앱만
+                if (stat.totalTimeInForeground > 60 * 1000) {
                     totalTimeMillis += stat.totalTimeInForeground
                     val appName = try {
                         val appInfo = packageManager.getApplicationInfo(pkgName, 0)
@@ -502,11 +717,10 @@ class SendDailyReportWorker(
                 }
             }
 
-            // 사용시간 내림차순 정렬
             appStatList.sortByDescending { it.durationMinutes }
 
             val payload = ReportPayload(
-                deviceId = Build.SERIAL.ifEmpty { Build.MODEL },
+                deviceId = Build.MODEL ?: "unknown_device",
                 deviceName = "\${Build.MANUFACTURER} \${Build.MODEL}",
                 androidVersion = "Android \${Build.VERSION.RELEASE} (API \${Build.VERSION.SDK_INT})",
                 reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
@@ -514,7 +728,6 @@ class SendDailyReportWorker(
                 apps = appStatList
             )
 
-            // Timesnooper 서버 API를 통해 부모 이메일(jpark04092@gmail.com)로 일일 보고서 자동 발송
             val response = TimesnooperApiClient.sendDailyReport(payload)
             if (response.isSuccessful) {
                 Log.i("Timesnooper", "Daily 10 AM Report successfully sent to parent email!")
@@ -561,16 +774,30 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. 필수 사용정보 접근 권한 체크 (UsageStats)
-        if (!hasUsageStatsPermission()) {
-            Toast.makeText(this, "아이 앱 사용시간 추적을 위해 '사용 정보 접근' 권한을 허용해주세요.", Toast.LENGTH_LONG).show()
+        findViewById<Button>(R.id.btnUsagePermission)?.setOnClickListener {
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         }
 
-        // 2. 배터리 최적화 예외 요청 (절전모드로 앱이 죽는 것 방지)
-        requestBatteryOptimizationExemption()
+        findViewById<Button>(R.id.btnBatteryExemption)?.setOnClickListener {
+            requestBatteryOptimizationExemption()
+        }
 
-        // 3. 백그라운드 서비스 및 10시 알람 활성화
+        findViewById<Button>(R.id.btnStartService)?.setOnClickListener {
+            startMonitorService()
+        }
+
+        findViewById<Button>(R.id.btnStealthMode)?.setOnClickListener {
+            enableStealthMode()
+        }
+
+        if (!hasUsageStatsPermission()) {
+            Toast.makeText(this, "아이 앱 사용시간 추적을 위해 '사용 정보 접근' 권한을 허용해주세요.", Toast.LENGTH_LONG).show()
+        } else {
+            startMonitorService()
+        }
+    }
+
+    private fun startMonitorService() {
         val serviceIntent = Intent(this, TimesnooperMonitorService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
@@ -578,6 +805,7 @@ class MainActivity : AppCompatActivity() {
             startService(serviceIntent)
         }
         DailyReportAlarmReceiver.scheduleDaily10AmAlarm(this)
+        Toast.makeText(this, "Timesnooper 백그라운드 서비스 활성화됨", Toast.LENGTH_SHORT).show()
     }
 
     private fun hasUsageStatsPermission(): Boolean {
@@ -604,22 +832,20 @@ class MainActivity : AppCompatActivity() {
                     data = Uri.parse("package:\$packageName")
                 }
                 startActivity(intent)
+            } else {
+                Toast.makeText(this, "이미 배터리 최적화 예외로 등록되어 있습니다.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    /**
-     * 아이가 홈화면에서 앱을 찾아 삭제하거나 끄지 못하도록
-     * 런처 아이콘을 스텔스 모드로 숨깁니다.
-     */
-    fun enableStealthMode() {
+    private fun enableStealthMode() {
         val componentName = ComponentName(this, MainActivity::class.java)
         packageManager.setComponentEnabledSetting(
             componentName,
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
             PackageManager.DONT_KILL_APP
         )
-        Toast.makeText(this, "아이콘이 숨겨졌습니다. 백그라운드에서 상시 작동합니다.", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "런처 아이콘이 숨겨졌습니다. 백그라운드에서 상시 작동합니다.", Toast.LENGTH_SHORT).show()
         finish()
     }
 }`
@@ -643,157 +869,5 @@ class MainActivity : AppCompatActivity() {
         <disable-keyguard-features />
     </uses-policies>
 </device-admin>`
-  },
-  {
-    name: 'build.gradle.kts',
-    path: 'app/build.gradle.kts',
-    language: 'gradle',
-    description: '안드로이드 12+ 및 레거시 태블릿 호환 Gradle 빌드 설정',
-    content: `plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-}
-
-android {
-    namespace = "com.timesnooper.app"
-    compileSdk = 34
-
-    defaultConfig {
-        applicationId = "com.timesnooper.app"
-        minSdk = 26 // Android 8.0 오레오 (구형 태블릿 완벽 지원)
-        targetSdk = 34 // Android 14 대응
-        versionCode = 1
-        versionName = "1.0.0"
-
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    buildTypes {
-        release {
-            isMinifyEnabled = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-}
-
-dependencies {
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-}
-`
-  },
-  {
-    name: 'build-apk.yml',
-    path: '.github/workflows/build-apk.yml',
-    language: 'yaml',
-    description: 'GitHub Actions 자동 빌드 워크플로우 (Push/PR 시 Debug 및 Release APK 자동 빌드 & 아티팩트 다운로드)',
-    content: `name: Build Timesnooper Android APK
-
-on:
-  push:
-    branches: [ "main", "master" ]
-    paths:
-      - 'app/**'
-      - 'gradle/**'
-      - 'build.gradle*'
-      - 'settings.gradle*'
-      - '.github/workflows/build-apk.yml'
-  pull_request:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build Type (debug / release / all)'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-          - debug
-          - release
-          - all
-
-jobs:
-  build:
-    name: Build & Package Android APK
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repository Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up JDK 17 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
-
-      - name: Grant Execute Permission for Gradle Wrapper
-        run: |
-          if [ -f "./gradlew" ]; then
-            chmod +x ./gradlew
-          else
-            echo "gradlew wrapper check"
-          fi
-
-      # 1. Debug APK 빌드 (설치 및 테스트용)
-      - name: Build Debug APK
-        if: \${{ github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'all' || github.event_name == 'push' || github.event_name == 'pull_request' }}
-        run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleDebug --stacktrace
-          else
-            gradle assembleDebug --stacktrace
-          fi
-
-      # 2. Release APK 빌드
-      - name: Build Release APK
-        if: \${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
-        run: |
-          if [ -f "./gradlew" ]; then
-            ./gradlew assembleRelease --stacktrace || echo "Release build step completed"
-          else
-            gradle assembleRelease --stacktrace || echo "Release build step completed"
-          fi
-
-      # 3. 빌드된 Debug APK 파일 업로드 (GitHub Actions Artifacts에서 바로 다운로드)
-      - name: Upload Debug APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: timesnooper-debug-apk
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            **/build/outputs/apk/debug/*.apk
-          retention-days: 30
-
-      # 4. Release APK 파일 업로드
-      - name: Upload Release APK Artifact
-        if: \${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: timesnooper-release-apk
-          path: |
-            app/build/outputs/apk/release/*.apk
-            **/build/outputs/apk/release/*.apk
-          retention-days: 30
-`
   }
 ];

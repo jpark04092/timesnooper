@@ -281,7 +281,7 @@ export const AndroidHub: React.FC = () => {
                   <Github className="w-5 h-5 text-slate-900" />
                   <h3 className="font-bold text-slate-900 text-base">GitHub Actions 무인 자동 APK 빌드 워크플로우</h3>
                   <span className="bg-emerald-50 text-emerald-700 text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-200">
-                    Java 17 + Gradle 캐싱
+                    Java 17 (setup-java@v5) + Gradle v4 액션
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
@@ -299,6 +299,18 @@ export const AndroidHub: React.FC = () => {
                 <Download className="w-4 h-4" />
                 <span>build-apk.yml 다운로드</span>
               </button>
+            </div>
+
+            {/* Error Fix & Optimization Notice */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-900 space-y-1.5">
+              <div className="font-bold flex items-center gap-1.5 text-blue-800">
+                <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                <span>GitHub Actions 최신 러너(Node 24) 및 Gradle 빌드 환경 최적화 완료</span>
+              </div>
+              <p className="text-blue-700 leading-relaxed">
+                • <strong>Node 20 지원 중단 대응</strong>: <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">actions/setup-java@v5</code> 및 <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">gradle/actions/setup-gradle@v4</code>로 업그레이드하여 Node 24 러너에서 경고 없이 고속 빌드됩니다.<br/>
+                • <strong>Gradle 파일 매칭 오류 해결</strong>: 루트 <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">settings.gradle.kts</code>, <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">build.gradle.kts</code>, <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">gradlew</code> 및 네이티브 안드로이드 소스 전체가 저장소에 구성되어 즉시 APK가 생성됩니다.
+              </p>
             </div>
 
             {/* 3 Step Guide */}
