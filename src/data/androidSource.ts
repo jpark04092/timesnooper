@@ -752,9 +752,15 @@ class SendDailyReportWorker(
 
             appStatList.sortByDescending { it.durationMinutes }
 
+            val prefs = applicationContext.getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
+            val parentEmail = prefs.getString("parent_email", "jpark04092@gmail.com") ?: "jpark04092@gmail.com"
+            val childName = prefs.getString("child_name", "자녀") ?: "자녀"
+
             val payload = ReportPayload(
                 deviceId = Build.MODEL ?: "unknown_device",
                 deviceName = "\${Build.MANUFACTURER} \${Build.MODEL}",
+                childName = childName,
+                recipientEmail = parentEmail,
                 androidVersion = "Android \${Build.VERSION.RELEASE} (API \${Build.VERSION.SDK_INT})",
                 reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
                 totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
@@ -763,7 +769,7 @@ class SendDailyReportWorker(
 
             val response = TimesnooperApiClient.sendDailyReport(payload)
             if (response.isSuccessful) {
-                Log.i("Timesnooper", "Daily 10 AM Report successfully sent to parent email!")
+                Log.i("Timesnooper", "Daily Report successfully sent to parent email ($parentEmail)!")
                 Result.success()
             } else {
                 Log.w("Timesnooper", "Server returned error: \${response.code()}, retrying...")
@@ -780,13 +786,15 @@ class SendDailyReportWorker(
     name: 'MainActivity.kt',
     path: 'app/src/main/java/com/timesnooper/app/ui/MainActivity.kt',
     language: 'kotlin',
-    description: '학부모용 설정 화면, 스텔스 모드(아이콘 숨김) 및 아이콘 복구(스텔스 해제) 토글 지원',
+    description: '학부모 수신 이메일 설정, 자녀 닉네임 설정, 즉시 테스트 메일 발송, 스텔스 모드 제어',
     content: `package com.timesnooper.app.ui
 
 import android.app.AppOpsManager
+import android.app.usage.UsageStatsManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -794,18 +802,49 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Button
-import android.widget.TextView
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.timesnooper.app.R
+import com.timesnooper.app.data.AppStatEntry
+import com.timesnooper.app.data.ReportPayload
+import com.timesnooper.app.network.TimesnooperApiClient
 import com.timesnooper.app.receiver.DailyReportAlarmReceiver
 import com.timesnooper.app.service.TimesnooperMonitorService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var prefs: SharedPreferences
+    private lateinit var etParentEmail: EditText
+    private lateinit var etChildName: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        prefs = getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
+
+        etParentEmail = findViewById(R.id.etParentEmail)
+        etChildName = findViewById(R.id.etChildName)
+
+        val savedEmail = prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com")
+        val savedChildName = prefs.getString(KEY_CHILD_NAME, "자녀 (갤럭시 탭)")
+        etParentEmail.setText(savedEmail)
+        etChildName.setText(savedChildName)
+
+        findViewById<Button>(R.id.btnSaveSettings)?.setOnClickListener {
+            saveEmailSettings()
+        }
+
+        findViewById<Button>(R.id.btnTestEmail)?.setOnClickListener {
+            sendLiveTestReport()
+        }
 
         findViewById<Button>(R.id.btnUsagePermission)?.setOnClickListener {
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
@@ -834,6 +873,101 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun saveEmailSettings() {
+        val email = etParentEmail.text.toString().trim()
+        val childName = etChildName.text.toString().trim()
+
+        if (email.isEmpty() || !email.contains("@")) {
+            Toast.makeText(this, "올바른 이메일 주소를 입력해주세요.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        prefs.edit()
+            .putString(KEY_PARENT_EMAIL, email)
+            .putString(KEY_CHILD_NAME, if (childName.isEmpty()) "자녀" else childName)
+            .apply()
+
+        Toast.makeText(this, "학부모 수신 이메일($email)이 성공적으로 저장되었습니다.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun sendLiveTestReport() {
+        val email = etParentEmail.text.toString().trim().ifEmpty {
+            prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com") ?: "jpark04092@gmail.com"
+        }
+        val childName = etChildName.text.toString().trim().ifEmpty {
+            prefs.getString(KEY_CHILD_NAME, "자녀") ?: "자녀"
+        }
+
+        Toast.makeText(this, "$email 로 테스트 리포트 발송 중...", Toast.LENGTH_SHORT).show()
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                val calendar = Calendar.getInstance()
+                val endTime = calendar.timeInMillis
+                calendar.add(Calendar.DAY_OF_YEAR, -1)
+                val startTime = calendar.timeInMillis
+
+                val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
+                val appStatList = mutableListOf<AppStatEntry>()
+                var totalTimeMillis = 0L
+
+                for ((pkgName, stat) in statsMap) {
+                    if (stat.totalTimeInForeground > 30 * 1000) {
+                        totalTimeMillis += stat.totalTimeInForeground
+                        val appLabel = try {
+                            val info = packageManager.getApplicationInfo(pkgName, 0)
+                            packageManager.getApplicationLabel(info).toString()
+                        } catch (e: Exception) {
+                            pkgName
+                        }
+                        appStatList.add(
+                            AppStatEntry(
+                                packageName = pkgName,
+                                appName = appLabel,
+                                durationMinutes = (stat.totalTimeInForeground / (1000 * 60)).toInt(),
+                                lastUsedTime = stat.lastTimeUsed
+                            )
+                        )
+                    }
+                }
+                appStatList.sortByDescending { it.durationMinutes }
+
+                val payload = ReportPayload(
+                    deviceId = Build.MODEL ?: "android_device",
+                    deviceName = "\${Build.MANUFACTURER} \${Build.MODEL}",
+                    childName = childName,
+                    recipientEmail = email,
+                    androidVersion = "Android \${Build.VERSION.RELEASE} (API \${Build.VERSION.SDK_INT})",
+                    reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
+                    totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
+                    apps = appStatList
+                )
+
+                val response = TimesnooperApiClient.sendDailyReport(payload)
+                withContext(Dispatchers.Main) {
+                    if (response.isSuccessful) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "성공: $email 로 리포트가 즉시 발송되었습니다!",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "발송 실패 (코드: \${response.code()})",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "오류 발생: \${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
     private fun startMonitorService() {
         val serviceIntent = Intent(this, TimesnooperMonitorService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -842,7 +976,7 @@ class MainActivity : AppCompatActivity() {
             startService(serviceIntent)
         }
         DailyReportAlarmReceiver.scheduleDaily10AmAlarm(this)
-        Toast.makeText(this, "Timesnooper 백그라운드 서비스 활성화됨", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Timesnooper 백그라운드 감시 및 정기 리포트 알람 활성화됨", Toast.LENGTH_SHORT).show()
     }
 
     private fun hasUsageStatsPermission(): Boolean {
@@ -894,6 +1028,11 @@ class MainActivity : AppCompatActivity() {
             PackageManager.DONT_KILL_APP
         )
         Toast.makeText(this, "런처 아이콘이 홈 화면에 다시 복구되었습니다.", Toast.LENGTH_SHORT).show()
+    }
+
+    companion object {
+        const val KEY_PARENT_EMAIL = "parent_email"
+        const val KEY_CHILD_NAME = "child_name"
     }
 }`
   },
@@ -986,5 +1125,263 @@ class StealthReceiver : BroadcastReceiver() {
         <disable-keyguard-features />
     </uses-policies>
 </device-admin>`
+  },
+  {
+    name: 'activity_main.xml',
+    path: 'app/src/main/res/layout/activity_main.xml',
+    language: 'xml',
+    description: '학부모 수신 이메일 설정 및 권한/스텔스 모드 제어 레이아웃',
+    content: `<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#F8FAFC">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Timesnooper 자녀 안심 케어"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#0F172A"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="자녀 기기 앱 사용시간 백그라운드 자동 수집 및 일일 리포트 전송"
+            android:textSize="12sp"
+            android:textColor="#64748B"
+            android:gravity="center"
+            android:layout_marginBottom="20dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📧 학부모 수신 이메일 설정"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#1E293B"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="리포트를 수신할 학부모 이메일 주소:"
+                android:textSize="12sp"
+                android:textColor="#475569"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/etParentEmail"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="예: jpark04092@gmail.com"
+                android:inputType="textEmailAddress"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#F1F5F9"
+                android:textColor="#0F172A"
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="자녀 이름 또는 기기 별칭:"
+                android:textSize="12sp"
+                android:textColor="#475569"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/etChildName"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="예: 지우 (갤럭시 탭)"
+                android:inputType="text"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#F1F5F9"
+                android:textColor="#0F172A"
+                android:layout_marginBottom="14dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2">
+
+                <Button
+                    android:id="@+id/btnSaveSettings"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="이메일 설정 저장"
+                    android:textSize="12sp"
+                    android:backgroundTint="#0F172A"
+                    android:layout_marginEnd="6dp" />
+
+                <Button
+                    android:id="@+id/btnTestEmail"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="테스트 메일 즉시 발송"
+                    android:textSize="12sp"
+                    android:backgroundTint="#0284C7"
+                    android:layout_marginStart="6dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚙️ 백그라운드 감시 및 시스템 권한"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#334155"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnUsagePermission"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="1. 사용 정보 접근 권한 허용 (필수)"
+            android:backgroundTint="#3B82F6"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnBatteryExemption"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="2. 배터리 절전모드(Doze) 무제한 예외"
+            android:backgroundTint="#475569"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnStartService"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="3. 감시 서비스 및 매일 리포트 알람 시작"
+            android:backgroundTint="#059669"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔒 스텔스(아이콘 은폐) 및 보안"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#334155"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnStealthMode"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="4. 스텔스 모드 진입 (홈 화면 아이콘 숨김)"
+            android:backgroundTint="#7C3AED"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnUnhideIcon"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="5. 스텔스 해제 (홈 화면 아이콘 복구)"
+            android:backgroundTint="#6366F1"
+            android:layout_marginBottom="24dp" />
+
+    </LinearLayout>
+</ScrollView>`
+  },
+  {
+    name: 'ReportPayload.kt',
+    path: 'app/src/main/java/com/timesnooper/app/data/ReportPayload.kt',
+    language: 'kotlin',
+    description: '리포트 전송 데이터 모델 (학부모 이메일, 자녀명, 기기 정보, 앱별 사용시간)',
+    content: `package com.timesnooper.app.data
+
+import com.google.gson.annotations.SerializedName
+
+data class AppStatEntry(
+    @SerializedName("packageName") val packageName: String,
+    @SerializedName("appName") val appName: String,
+    @SerializedName("durationMinutes") val durationMinutes: Int,
+    @SerializedName("lastUsedTime") val lastUsedTime: Long
+)
+
+data class ReportPayload(
+    @SerializedName("deviceId") val deviceId: String,
+    @SerializedName("deviceName") val deviceName: String,
+    @SerializedName("childName") val childName: String = "자녀",
+    @SerializedName("recipientEmail") val recipientEmail: String = "jpark04092@gmail.com",
+    @SerializedName("androidVersion") val androidVersion: String,
+    @SerializedName("reportDate") val reportDate: String,
+    @SerializedName("totalScreenTimeMinutes") val totalScreenTimeMinutes: Int,
+    @SerializedName("apps") val apps: List<AppStatEntry>
+)`
+  },
+  {
+    name: 'TimesnooperApiClient.kt',
+    path: 'app/src/main/java/com/timesnooper/app/network/TimesnooperApiClient.kt',
+    language: 'kotlin',
+    description: 'Timesnooper 백엔드 리포트 전송 Retrofit 클라이언트',
+    content: `package com.timesnooper.app.network
+
+import com.timesnooper.app.data.ReportPayload
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.Body
+import retrofit2.http.POST
+import java.util.concurrent.TimeUnit
+
+interface TimesnooperApiService {
+    @POST("api/reports/daily")
+    suspend fun submitDailyReport(@Body payload: ReportPayload): Response<Map<String, Any>>
+}
+
+object TimesnooperApiClient {
+    private const val BASE_URL = "https://ais-dev-2xjinejemuzfrzivhmre6f-252788179842.asia-northeast1.run.app/"
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        })
+        .build()
+
+    private val api: TimesnooperApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(TimesnooperApiService::class.java)
+    }
+
+    suspend fun sendDailyReport(payload: ReportPayload): Response<Map<String, Any>> {
+        return api.submitDailyReport(payload)
+    }
+}`
   }
 ];

@@ -1,65 +1,182 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center_horizontal">
+    android:fillViewport="true"
+    android:background="#F8FAFC">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Timesnooper 백그라운드 서비스"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="#0F172A"
-        android:layout_marginTop="32dp"
-        android:layout_marginBottom="8dp" />
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:gravity="center_horizontal">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="자녀 기기 앱 사용시간을 안전하게 백그라운드에서 추적합니다."
-        android:textSize="14sp"
-        android:textColor="#64748B"
-        android:gravity="center"
-        android:layout_marginBottom="32dp" />
+        <!-- App Header -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Timesnooper 자녀 안심 케어"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#0F172A"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="4dp" />
 
-    <Button
-        android:id="@+id/btnUsagePermission"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="1. 사용 정보 접근 권한 허용"
-        android:layout_marginBottom="12dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="자녀 기기 앱 사용시간 백그라운드 자동 수집 및 일일 리포트 전송"
+            android:textSize="12sp"
+            android:textColor="#64748B"
+            android:gravity="center"
+            android:layout_marginBottom="20dp" />
 
-    <Button
-        android:id="@+id/btnBatteryExemption"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="2. 배터리 절전모드(Doze) 예외 등록"
-        android:layout_marginBottom="12dp" />
+        <!-- Card: Parent Email & Device Settings -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#FFFFFF"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
 
-    <Button
-        android:id="@+id/btnStartService"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="3. 감시 서비스 및 10시 알람 시작"
-        android:layout_marginBottom="12dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📧 학부모 수신 이메일 설정"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#1E293B"
+                android:layout_marginBottom="12dp" />
 
-    <Button
-        android:id="@+id/btnStealthMode"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:text="4. 스텔스 모드 (런처 아이콘 숨김)"
-        android:backgroundTint="#7C3AED"
-        android:layout_marginTop="16dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="리포트를 수신할 학부모 이메일 주소:"
+                android:textSize="12sp"
+                android:textColor="#475569"
+                android:layout_marginBottom="4dp" />
 
-    <Button
-        android:id="@+id/btnUnhideIcon"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:text="5. 스텔스 해제 (홈 화면 아이콘 복구)"
-        android:backgroundTint="#2563EB"
-        android:layout_marginTop="10dp" />
+            <EditText
+                android:id="@+id/etParentEmail"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="예: jpark04092@gmail.com"
+                android:inputType="textEmailAddress"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#F1F5F9"
+                android:textColor="#0F172A"
+                android:layout_marginBottom="10dp" />
 
-</LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="자녀 이름 또는 기기 별칭:"
+                android:textSize="12sp"
+                android:textColor="#475569"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/etChildName"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="예: 지우 (갤럭시 탭)"
+                android:inputType="text"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#F1F5F9"
+                android:textColor="#0F172A"
+                android:layout_marginBottom="14dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2">
+
+                <Button
+                    android:id="@+id/btnSaveSettings"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="이메일 설정 저장"
+                    android:textSize="12sp"
+                    android:backgroundTint="#0F172A"
+                    android:layout_marginEnd="6dp" />
+
+                <Button
+                    android:id="@+id/btnTestEmail"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="테스트 메일 즉시 발송"
+                    android:textSize="12sp"
+                    android:backgroundTint="#0284C7"
+                    android:layout_marginStart="6dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Permission Buttons -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚙️ 백그라운드 감시 및 시스템 권한"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#334155"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnUsagePermission"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="1. 사용 정보 접근 권한 허용 (필수)"
+            android:backgroundTint="#3B82F6"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnBatteryExemption"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="2. 배터리 절전모드(Doze) 무제한 예외"
+            android:backgroundTint="#475569"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnStartService"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="3. 감시 서비스 및 매일 리포트 알람 시작"
+            android:backgroundTint="#059669"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Stealth & Re-activate Buttons -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔒 스텔스(아이콘 은폐) 및 보안"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#334155"
+            android:layout_marginBottom="10dp" />
+
+        <Button
+            android:id="@+id/btnStealthMode"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="4. 스텔스 모드 진입 (홈 화면 아이콘 숨김)"
+            android:backgroundTint="#7C3AED"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnUnhideIcon"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="5. 스텔스 해제 (홈 화면 아이콘 복구)"
+            android:backgroundTint="#6366F1"
+            android:layout_marginBottom="24dp" />
+
+    </LinearLayout>
+</ScrollView>

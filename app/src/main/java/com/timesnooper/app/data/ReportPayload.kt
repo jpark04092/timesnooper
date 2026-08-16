@@ -12,6 +12,8 @@ data class AppStatEntry(
 data class ReportPayload(
     @SerializedName("deviceId") val deviceId: String,
     @SerializedName("deviceName") val deviceName: String,
+    @SerializedName("childName") val childName: String = "자녀",
+    @SerializedName("recipientEmail") val recipientEmail: String = "jpark04092@gmail.com",
     @SerializedName("androidVersion") val androidVersion: String,
     @SerializedName("reportDate") val reportDate: String,
     @SerializedName("totalScreenTimeMinutes") val totalScreenTimeMinutes: Int,

@@ -59,9 +59,15 @@ class SendDailyReportWorker(
             // 사용시간 내림차순 정렬
             appStatList.sortByDescending { it.durationMinutes }
 
+            val prefs = applicationContext.getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
+            val parentEmail = prefs.getString("parent_email", "jpark04092@gmail.com") ?: "jpark04092@gmail.com"
+            val childName = prefs.getString("child_name", "자녀") ?: "자녀"
+
             val payload = ReportPayload(
                 deviceId = Build.MODEL ?: "unknown_device",
                 deviceName = "${Build.MANUFACTURER} ${Build.MODEL}",
+                childName = childName,
+                recipientEmail = parentEmail,
                 androidVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
                 reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
                 totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
@@ -70,7 +76,7 @@ class SendDailyReportWorker(
 
             val response = TimesnooperApiClient.sendDailyReport(payload)
             if (response.isSuccessful) {
-                Log.i("Timesnooper", "Daily 10 AM Report successfully sent to parent email!")
+                Log.i("Timesnooper", "Daily Report successfully sent to parent email ($parentEmail)!")
                 Result.success()
             } else {
                 Log.w("Timesnooper", "Server returned error: ${response.code()}, retrying...")

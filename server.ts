@@ -252,7 +252,7 @@ app.post('/api/telemetry', (req: Request, res: Response) => {
   res.json({ success: true, message: 'Telemetry received successfully' });
 });
 
-// 5. POST /api/send-report - Trigger 10:00 AM report dispatch (or test send to parent email)
+// 5. POST /api/send-report - Trigger report dispatch from web dashboard
 app.post('/api/send-report', async (req: Request, res: Response) => {
   const { deviceId, recipientEmail, mode } = req.body;
   const targetDevice = devices.find(d => d.id === deviceId) || devices[0];
@@ -317,6 +317,122 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
   res.json({
     success: true,
     message: `[데일리 리포트] ${emailToUse} (부모님) 이메일로 성공적으로 리포트가 발송되었습니다.`,
+    log: newLog
+  });
+});
+
+// 5-1. POST /api/reports/daily - Direct report endpoint called by Android APK daemon
+app.post('/api/reports/daily', async (req: Request, res: Response) => {
+  const { deviceId, deviceName, childName, recipientEmail, androidVersion, reportDate, totalScreenTimeMinutes, apps } = req.body;
+
+  const targetEmail = recipientEmail || 'jpark04092@gmail.com';
+  const targetChildName = childName || '자녀';
+  const targetDeviceName = deviceName || 'Android 기기';
+
+  // Map or create device record
+  let existingDevice = devices.find(d => d.deviceName === targetDeviceName || d.id === deviceId);
+  if (!existingDevice) {
+    existingDevice = {
+      id: `device-${Date.now()}`,
+      childName: targetChildName,
+      deviceName: targetDeviceName,
+      model: deviceId || 'Android Device',
+      androidVersion: androidVersion || 'Android 12',
+      isTablet: true,
+      deviceOwnerActive: true,
+      usageStatsGranted: true,
+      batteryOptimizationIgnored: true,
+      bootReceiverArmed: true,
+      accessibilityArmed: true,
+      stealthModeEnabled: true,
+      lastHeartbeat: new Date().toISOString(),
+      registeredAt: new Date().toISOString(),
+      reportRecipientEmail: targetEmail,
+      scheduledReportTime: '22:00',
+      dailyGoalLimitMinutes: 180,
+      todayTelemetry: {
+        deviceId: deviceId || 'android-device',
+        date: reportDate || new Date().toISOString().split('T')[0],
+        batteryLevel: 90,
+        isCharging: false,
+        screenTimeMinutes: Number(totalScreenTimeMinutes) || 0,
+        unlockCount: 12,
+        firstUnlockedAt: '08:00',
+        lastActiveAt: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+        lateNightUsageMinutes: 0,
+        apps: (apps || []).map((a: any) => ({
+          packageName: a.packageName,
+          appName: a.appName,
+          category: a.packageName.includes('youtube') ? 'video' : a.packageName.includes('game') ? 'game' : 'etc',
+          durationMinutes: a.durationMinutes,
+          openCount: 1,
+          lastUsedTimestamp: a.lastUsedTime || Date.now()
+        })),
+        hourlyTimeline: []
+      }
+    };
+    devices.unshift(existingDevice);
+  } else {
+    existingDevice.childName = targetChildName;
+    existingDevice.reportRecipientEmail = targetEmail;
+    existingDevice.lastHeartbeat = new Date().toISOString();
+    existingDevice.todayTelemetry = {
+      ...existingDevice.todayTelemetry,
+      screenTimeMinutes: Number(totalScreenTimeMinutes) || existingDevice.todayTelemetry.screenTimeMinutes,
+      apps: (apps || []).map((a: any) => ({
+        packageName: a.packageName,
+        appName: a.appName,
+        category: a.packageName.includes('youtube') ? 'video' : a.packageName.includes('game') ? 'game' : 'etc',
+        durationMinutes: a.durationMinutes,
+        openCount: 1,
+        lastUsedTimestamp: a.lastUsedTime || Date.now()
+      }))
+    };
+  }
+
+  // Generate AI advice
+  let aiAdvice = '오늘 자녀의 일일 스크린타임과 앱 사용 내역이 정상 수집되었습니다. 균형 있는 학습 및 여가 시간 관리를 지속해주세요.';
+  const gemini = getGeminiClient();
+  if (gemini) {
+    try {
+      const prompt = `자녀(${targetChildName})의 일일 앱 사용 리포트입니다:
+- 총 사용시간: ${totalScreenTimeMinutes}분
+- 주요 앱: ${(apps || []).slice(0, 5).map((a: any) => `${a.appName}(${a.durationMinutes}분)`).join(', ')}
+학부모님(${targetEmail})을 위한 2문장의 데일리 지도 가이드를 작성해주세요.`;
+
+      const aiRes = await gemini.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt
+      });
+      if (aiRes.text) aiAdvice = aiRes.text;
+    } catch (e) {
+      console.warn('AI advice error on daily endpoint:', e);
+    }
+  }
+
+  const htmlContent = generateReportEmailHtml(existingDevice, existingDevice.todayTelemetry, aiAdvice);
+
+  const newLog: EmailReportLog = {
+    id: `log-${Date.now()}`,
+    deviceId: existingDevice.id,
+    deviceName: existingDevice.deviceName,
+    childName: existingDevice.childName,
+    recipientEmail: targetEmail,
+    sentAt: new Date().toLocaleString('ko-KR', { hour12: false }) + ' KST',
+    reportDate: reportDate || new Date().toISOString().split('T')[0],
+    totalScreenTimeMinutes: Number(totalScreenTimeMinutes) || 0,
+    topApp: (apps && apps.length > 0) ? `${apps[0].appName} (${apps[0].durationMinutes}분)` : '앱 실행 기록 없음',
+    status: 'DELIVERED',
+    deliveryMode: 'AUTOMATIC_SCHEDULED',
+    htmlPreview: htmlContent,
+    aiAdvice
+  };
+
+  reportLogs.unshift(newLog);
+
+  res.json({
+    success: true,
+    message: `[APK 리포트 완료] 수신처: ${targetEmail} 로 리포트가 성공적으로 저장 및 발송되었습니다.`,
     log: newLog
   });
 });
