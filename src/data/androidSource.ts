@@ -345,6 +345,24 @@ dependencies {
             </intent-filter>
         </receiver>
 
+        <!-- 핵심 4: 스텔스 모드 제어 & 비상 복구 리시버 (ADB Broadcast 및 시크릿 다이얼 지원) -->
+        <receiver
+            android:name=".receiver.StealthReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.timesnooper.app.ACTION_UNHIDE_ICON" />
+                <action android:name="com.timesnooper.app.ACTION_HIDE_ICON" />
+                <action android:name="com.timesnooper.app.ACTION_LAUNCH_UI" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SECRET_CODE" />
+                <data
+                    android:scheme="android_secret_code"
+                    android:host="8463" />
+            </intent-filter>
+        </receiver>
+
         <!-- 매일 오전 10시 정밀 정각 리포트 알람 리시버 -->
         <receiver
             android:name=".receiver.DailyReportAlarmReceiver"
@@ -762,7 +780,7 @@ class SendDailyReportWorker(
     name: 'MainActivity.kt',
     path: 'app/src/main/java/com/timesnooper/app/ui/MainActivity.kt',
     language: 'kotlin',
-    description: '학부모용 초기 세팅 마법사 및 런처 아이콘 자동 은폐 기능',
+    description: '학부모용 설정 화면, 스텔스 모드(아이콘 숨김) 및 아이콘 복구(스텔스 해제) 토글 지원',
     content: `package com.timesnooper.app.ui
 
 import android.app.AppOpsManager
@@ -803,6 +821,10 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btnStealthMode)?.setOnClickListener {
             enableStealthMode()
+        }
+
+        findViewById<Button>(R.id.btnUnhideIcon)?.setOnClickListener {
+            disableStealthMode()
         }
 
         if (!hasUsageStatsPermission()) {
@@ -862,6 +884,86 @@ class MainActivity : AppCompatActivity() {
         )
         Toast.makeText(this, "런처 아이콘이 숨겨졌습니다. 백그라운드에서 상시 작동합니다.", Toast.LENGTH_SHORT).show()
         finish()
+    }
+
+    private fun disableStealthMode() {
+        val componentName = ComponentName(this, MainActivity::class.java)
+        packageManager.setComponentEnabledSetting(
+            componentName,
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            PackageManager.DONT_KILL_APP
+        )
+        Toast.makeText(this, "런처 아이콘이 홈 화면에 다시 복구되었습니다.", Toast.LENGTH_SHORT).show()
+    }
+}`
+  },
+  {
+    name: 'StealthReceiver.kt',
+    path: 'app/src/main/java/com/timesnooper/app/receiver/StealthReceiver.kt',
+    language: 'kotlin',
+    description: '스텔스 모드 제어 및 비상 복구 리시버 (SecurityException 없이 ADB Broadcast 및 시크릿 다이얼로 아이콘 원상복구)',
+    content: `package com.timesnooper.app.receiver
+
+import android.content.BroadcastReceiver
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.util.Log
+import android.widget.Toast
+import com.timesnooper.app.ui.MainActivity
+
+class StealthReceiver : BroadcastReceiver() {
+
+    override fun onReceive(context: Context, intent: Intent) {
+        val action = intent.action
+        Log.i("Timesnooper", "StealthReceiver triggered with action: \$action")
+
+        val mainActivityComponent = ComponentName(context, MainActivity::class.java)
+
+        when (action) {
+            ACTION_UNHIDE_ICON -> {
+                // 앱 프로세스 권한으로 MainActivity 컴포넌트를 즉시 활성화 (SecurityException 없음)
+                context.packageManager.setComponentEnabledSetting(
+                    mainActivityComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+                Toast.makeText(context, "Timesnooper: 런처 아이콘이 복구되었습니다.", Toast.LENGTH_LONG).show()
+
+                val launchIntent = Intent(context, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                }
+                context.startActivity(launchIntent)
+            }
+
+            ACTION_HIDE_ICON -> {
+                context.packageManager.setComponentEnabledSetting(
+                    mainActivityComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+                Toast.makeText(context, "Timesnooper: 스텔스 모드가 활성화되었습니다.", Toast.LENGTH_LONG).show()
+            }
+
+            ACTION_LAUNCH_UI, "android.provider.Telephony.SECRET_CODE" -> {
+                context.packageManager.setComponentEnabledSetting(
+                    mainActivityComponent,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP
+                )
+                val launchIntent = Intent(context, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                }
+                context.startActivity(launchIntent)
+            }
+        }
+    }
+
+    companion object {
+        const val ACTION_UNHIDE_ICON = "com.timesnooper.app.ACTION_UNHIDE_ICON"
+        const val ACTION_HIDE_ICON = "com.timesnooper.app.ACTION_HIDE_ICON"
+        const val ACTION_LAUNCH_UI = "com.timesnooper.app.ACTION_LAUNCH_UI"
     }
 }`
   },

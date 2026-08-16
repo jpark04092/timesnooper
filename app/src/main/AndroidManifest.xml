@@ -96,6 +96,24 @@
             </intent-filter>
         </receiver>
 
+        <!-- 핵심 4: 스텔스 모드 제어 & 비상 복구 리시버 (ADB Broadcast 및 시크릿 다이얼 지원) -->
+        <receiver
+            android:name=".receiver.StealthReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.timesnooper.app.ACTION_UNHIDE_ICON" />
+                <action android:name="com.timesnooper.app.ACTION_HIDE_ICON" />
+                <action android:name="com.timesnooper.app.ACTION_LAUNCH_UI" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SECRET_CODE" />
+                <data
+                    android:scheme="android_secret_code"
+                    android:host="8463" />
+            </intent-filter>
+        </receiver>
+
         <!-- 매일 오전 10시 정밀 정각 리포트 알람 리시버 -->
         <receiver
             android:name=".receiver.DailyReportAlarmReceiver"

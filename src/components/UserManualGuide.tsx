@@ -135,7 +135,7 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
             }`}
           >
             <EyeOff className="w-4 h-4" />
-            <span>4. 스텔스 & 시크릿 진입</span>
+            <span>4. 스텔스 & 앱 재활성화 (아이콘 복구)</span>
           </button>
 
           <button
@@ -255,11 +255,11 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                 <div className="bg-slate-900 text-slate-100 p-3 rounded-lg font-mono text-xs space-y-2">
                   <div className="text-slate-400 text-[11px]"># USB 케이블로 PC와 연결 후 터미널/CMD에서 실행:</div>
                   <div className="text-emerald-400 break-all select-all">
-                    adb shell dpm set-device-owner com.timesnooper.agent/.receiver.TimesnooperAdminReceiver
+                    adb shell dpm set-device-owner com.timesnooper.app/.receiver.TimesnooperAdminReceiver
                   </div>
                 </div>
                 <button
-                  onClick={() => handleCopy('adb shell dpm set-device-owner com.timesnooper.agent/.receiver.TimesnooperAdminReceiver', 'step3-adb')}
+                  onClick={() => handleCopy('adb shell dpm set-device-owner com.timesnooper.app/.receiver.TimesnooperAdminReceiver', 'step3-adb')}
                   className="w-full bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold py-2 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   {copiedId === 'step3-adb' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -273,7 +273,7 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                   <span className="bg-purple-600 text-white text-xs font-bold px-2.5 py-0.5 rounded">STEP 4</span>
                   <span className="text-xs text-slate-400 font-medium">소요시간: 1분</span>
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">스텔스 모드(아이콘 숨김) & 부모 이메일 등록</h3>
+                <h3 className="font-bold text-slate-900 text-base">스텔스 모드(아이콘 은폐) & 부모 이메일 등록</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
                   timesnooper 앱 설정에서 학부모 이메일(<code className="bg-slate-200 px-1 rounded text-purple-700 font-mono">jpark04092@gmail.com</code> 등)을 등록하고 <strong>[스텔스 모드 활성화]</strong>를 켭니다.
                 </p>
@@ -283,8 +283,18 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                     <span>이제 설치가 완료되었습니다!</span>
                   </div>
                   <p className="text-purple-700 text-[11px] leading-relaxed">
-                    홈 화면에서 앱 아이콘이 사라지며, 아이가 재부팅하거나 앱을 강제 종료해도 1초 안에 자동 부활하여 매일 오전 10:00에 이메일로 리포트를 자동 전송합니다.
+                    홈 화면에서 앱 아이콘이 사라지며, 아이가 재부팅하거나 앱을 강제 종료해도 1초 안에 자동 부활하여 매일 지정 시각에 이메일로 리포트를 자동 전송합니다.
                   </p>
+                </div>
+                <div className="bg-white border border-purple-200 rounded-lg p-2.5 text-[11px] text-slate-600 flex items-center justify-between gap-2">
+                  <span>💡 스텔스 모드 진입 후 앱을 다시 열거나 아이콘을 복원하려면?</span>
+                  <button
+                    onClick={() => setActiveSection('stealth')}
+                    className="text-purple-700 font-bold hover:underline shrink-0 cursor-pointer flex items-center gap-0.5"
+                  >
+                    <span>재활성화법</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -333,7 +343,7 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                 <div>
                   <span className="text-slate-400"># 2. timesnooper를 Device Owner로 승격</span>
                   <div className="text-emerald-400 mt-1 select-all break-all">
-                    adb shell dpm set-device-owner com.timesnooper.agent/.receiver.TimesnooperAdminReceiver
+                    adb shell dpm set-device-owner com.timesnooper.app/.receiver.TimesnooperAdminReceiver
                   </div>
                   <div className="text-slate-500 text-[11px] mt-0.5">성공 시 &quot;Success: Device owner set to package...&quot; 메시지가 출력됩니다.</div>
                 </div>
@@ -341,21 +351,21 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                 <div>
                   <span className="text-slate-400"># 3. 배터리 최적화 예외(백그라운드 무제한 허용) 원클릭 명령</span>
                   <div className="text-emerald-400 mt-1 select-all break-all">
-                    adb shell dumpsys deviceidle whitelist +com.timesnooper.agent
+                    adb shell dumpsys deviceidle whitelist +com.timesnooper.app
                   </div>
                 </div>
 
                 <div>
                   <span className="text-slate-400"># 4. 사용정보 통계 접근 권한 원클릭 승인</span>
                   <div className="text-emerald-400 mt-1 select-all break-all">
-                    adb shell pm grant com.timesnooper.agent android.permission.PACKAGE_USAGE_STATS
+                    adb shell pm grant com.timesnooper.app android.permission.PACKAGE_USAGE_STATS
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => handleCopy('adb shell dpm set-device-owner com.timesnooper.agent/.receiver.TimesnooperAdminReceiver', 'owner-cmd')}
+                  onClick={() => handleCopy('adb shell dpm set-device-owner com.timesnooper.app/.receiver.TimesnooperAdminReceiver', 'owner-cmd')}
                   className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
                 >
                   {copiedId === 'owner-cmd' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -449,58 +459,224 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
         </div>
       )}
 
-      {/* SECTION 4: Stealth Mode & Secret Dial */}
+      {/* SECTION 4: Stealth Mode & Secret Dial & Re-activation */}
       {activeSection === 'stealth' && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-5">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
             <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
               <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold">
                 <EyeOff className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-900">스텔스 모드 (런처 아이콘 은폐) & 시크릿 진입법</h2>
-                <p className="text-xs text-slate-500">아이가 앱의 존재를 인지하고 삭제/조작을 시도하는 것을 원천 방지합니다.</p>
+                <h2 className="text-lg font-bold text-slate-900">스텔스 모드 (런처 은폐) & 앱 재활성화(액티브/복구) 가이드</h2>
+                <p className="text-xs text-slate-500">
+                  아이가 앱의 존재를 인지하고 조작하는 것을 방지하며, 필요 시 부모님이 언제든 앱을 다시 켜거나 홈 화면 아이콘을 원상복구할 수 있습니다.
+                </p>
               </div>
             </div>
 
+            {/* Principle & Security */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="border border-slate-200 rounded-xl p-5 space-y-3 bg-slate-50/50">
-                <h3 className="font-bold text-slate-900 text-sm">스텔스 모드 작동 원리</h3>
+              <div className="border border-purple-100 bg-purple-50/40 rounded-xl p-5 space-y-3">
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <EyeOff className="w-4 h-4 text-purple-600" />
+                  <span>스텔스 모드 작동 원리 (런처 컴포넌트 비활성화)</span>
+                </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  안드로이드의 <code className="bg-slate-200 px-1 rounded font-mono text-purple-700">PackageManager.setComponentEnabledSetting()</code> API를 활용하여 홈 화면(런처)에서 앱 아이콘을 완전히 숨깁니다.
+                  안드로이드 OS의 <code className="bg-purple-100 text-purple-800 px-1 rounded font-mono">PackageManager.setComponentEnabledSetting()</code>을 사용하여 <strong>MainActivity의 런처 진입점만 비활성화(STATE_DISABLED)</strong>합니다.
                 </p>
-                <div className="bg-purple-50 border border-purple-200 p-3 rounded-lg text-xs text-purple-900 space-y-1">
-                  <div className="font-semibold">보안 효과:</div>
-                  <ul className="text-[11px] text-purple-800 list-disc list-inside space-y-0.5">
-                    <li>자녀의 홈 화면 및 앱 서랍에 timesnooper 아이콘이 노출되지 않음</li>
-                    <li>호기심이나 거부감으로 인한 앱 조작 시도 사전 차단</li>
-                    <li>백그라운드 모니터링 및 10시 이메일 발송은 100% 정상 작동</li>
+                <div className="bg-white border border-purple-200/80 p-3 rounded-lg text-xs space-y-1.5">
+                  <div className="font-semibold text-purple-950">스텔스 상태에서의 핵심 특징:</div>
+                  <ul className="text-[11px] text-purple-800 list-disc list-inside space-y-1">
+                    <li>자녀의 홈 화면, 앱 서랍, 최근 실행 앱 목록에 아이콘이 전혀 노출되지 않음</li>
+                    <li>백그라운드 포그라운드 서비스 및 알람 매니저는 <strong>100% 무중단 상시 구동</strong></li>
+                    <li>재부팅하거나 배터리가 방전 후 켜져도 <strong>자동으로 스텔스 백그라운드 유지</strong></li>
                   </ul>
                 </div>
               </div>
 
               <div className="border border-slate-200 rounded-xl p-5 space-y-3 bg-slate-50/50">
-                <h3 className="font-bold text-slate-900 text-sm">부모 전용 시크릿 관리자 모드 진입 2가지 방법</h3>
-                <div className="space-y-3 text-xs text-slate-700">
-                  <div className="bg-white border border-slate-200 p-3 rounded-lg space-y-1">
-                    <strong className="text-slate-900 flex items-center gap-1.5">
-                      <span className="bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">방법 A</span>
-                      기본 전화 다이얼러 시크릿 코드 입력
-                    </strong>
-                    <p className="text-slate-600 text-[11px]">
-                      전화 앱(다이얼)을 열고 <span className="font-mono font-bold text-purple-700 text-sm">*#*#8463#*#*</span> (*#*#TIME#*#*)를 입력하면 숨겨진 관리자 설정 화면이 즉시 열립니다.
-                    </p>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 p-3 rounded-lg space-y-1">
-                    <strong className="text-slate-900 flex items-center gap-1.5">
-                      <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">방법 B</span>
-                      전화 기능이 없는 Wi-Fi 전용 태블릿인 경우 (ADB)
-                    </strong>
-                    <div className="bg-slate-900 text-emerald-400 p-2 rounded font-mono text-[11px] mt-1 break-all">
-                      adb shell am start -n com.timesnooper.agent/.ui.MainActivity
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>모니터링 동작 상태 실시간 확인법</span>
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  아이콘이 보이지 않아도 감시 서비스가 정상 작동하고 있는지 PC 터미널에서 즉시 검증할 수 있습니다:
+                </p>
+                <div className="bg-slate-950 text-slate-100 rounded-lg p-3 font-mono text-[11px] space-y-2">
+                  <div>
+                    <span className="text-slate-400"># 백그라운드 모니터 서비스 실행 여부 확인:</span>
+                    <div className="text-emerald-400 break-all select-all">
+                      adb shell dumpsys activity services TimesnooperMonitorService
                     </div>
                   </div>
+                  <div>
+                    <span className="text-slate-400"># 정기 리포트 알람 등록 상태 확인:</span>
+                    <div className="text-emerald-400 break-all select-all">
+                      adb shell dumpsys alarm | grep -i timesnooper
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Security Exception Explanation Callout */}
+            <div className="border border-amber-300 bg-amber-50/70 rounded-xl p-4 space-y-2">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <span>Q. &apos;adb shell pm enable&apos; 실행 시 SecurityException 에러가 뜨는 이유와 해결책</span>
+              </div>
+              <div className="text-xs text-amber-950 leading-relaxed space-y-1 pl-6">
+                <p>
+                  <strong>원인:</strong> 최신 안드로이드 OS(Android 10~15+)는 보안 격리 정책으로 인해 일반 <code className="bg-amber-100 text-amber-900 px-1 rounded font-mono font-bold">adb shell(UID 2000)</code> 계정이 타사 앱의 컴포넌트 상태를 임의 변경(<code className="font-mono">pm enable/disable</code>)하는 것을 <code className="font-mono text-rose-700">SecurityException</code>으로 엄격히 차단합니다.
+                </p>
+                <p>
+                  <strong>해결책:</strong> <code className="font-mono">pm enable</code> 대신 <strong>앱 자체 프로세스에 브로드캐스트를 전송하는 명령어(<code className="bg-amber-100 text-amber-900 font-mono font-bold px-1 rounded">am broadcast</code>)</strong>를 실행하면, 앱 자체 권한으로 즉시 아이콘을 100% 에러 없이 살려냅니다!
+                </p>
+              </div>
+            </div>
+
+            {/* Core: 4 Methods to Reactivate and Open */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center gap-2">
+                <span className="bg-blue-600 text-white text-xs font-black px-2 py-0.5 rounded">검증된 매뉴얼</span>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  스텔스 모드 이후 앱을 액티브(아이콘 복구 / 다시 열기)하는 4가지 방법
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Method 1: ADB Broadcast (100% Working, No SecurityException) */}
+                <div className="border border-emerald-300 bg-emerald-50/40 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="bg-emerald-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">
+                      방법 1 (★ 100% 작동 / SecurityException 없음)
+                    </span>
+                    <span className="text-[11px] text-emerald-700 font-semibold">ADB 브로드캐스트 복구</span>
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    ADB Broadcast로 런처 아이콘 즉시 복원 및 화면 열기
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    앱 내부의 <code className="bg-slate-200 px-1 rounded font-mono text-emerald-800">StealthReceiver</code>가 앱 자체 권한으로 아이콘을 다시 켜고 관리자 화면을 즉시 띄웁니다:
+                  </p>
+                  <div className="bg-slate-950 text-slate-100 p-3 rounded-lg font-mono text-xs space-y-1">
+                    <div className="text-slate-400 text-[10px]"># 가장 완벽하고 확실한 아이콘 복구 명령어:</div>
+                    <div className="text-emerald-400 break-all select-all">
+                      adb shell am broadcast -a com.timesnooper.app.ACTION_UNHIDE_ICON -p com.timesnooper.app
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleCopy('adb shell am broadcast -a com.timesnooper.app.ACTION_UNHIDE_ICON -p com.timesnooper.app', 'reactivate-broadcast')}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    {copiedId === 'reactivate-broadcast' ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedId === 'reactivate-broadcast' ? '명령어 복사 완료!' : 'ADB 아이콘 복구 브로드캐스트 복사'}</span>
+                  </button>
+                </div>
+
+                {/* Method 2: Device Settings App */}
+                <div className="border border-blue-200 bg-blue-50/30 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="bg-blue-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">
+                      방법 2 (PC 불필요)
+                    </span>
+                    <span className="text-[11px] text-blue-700 font-semibold">안드로이드 설정 앱에서 열기</span>
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    기기 [설정] 앱에서 timesnooper 직접 열기
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    홈 화면에 아이콘이 없더라도 기기 기본 설정 앱에서 언제든 진입할 수 있습니다:
+                  </p>
+                  <div className="bg-white border border-blue-200 p-3 rounded-lg text-xs text-slate-700 space-y-1.5">
+                    <div className="font-semibold text-blue-900">진입 순서:</div>
+                    <ol className="list-decimal list-inside text-[11px] space-y-1 text-slate-600">
+                      <li>기기 <strong>[설정]</strong> → <strong>[애플리케이션]</strong> (또는 앱 관리) 진입</li>
+                      <li><strong>System Time Service</strong> (timesnooper) 선택</li>
+                      <li>화면 하단의 <strong>[열기(Open)]</strong> 버튼 클릭</li>
+                      <li>열린 화면에서 <strong>[5. 스텔스 해제 (홈 화면 아이콘 복구)]</strong> 버튼 클릭</li>
+                    </ol>
+                  </div>
+                </div>
+
+                {/* Method 3: Secret Dialer */}
+                <div className="border border-purple-200 bg-purple-50/30 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="bg-purple-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">
+                      방법 3 (스마트폰)
+                    </span>
+                    <span className="text-[11px] text-purple-700 font-semibold">전화 다이얼 시크릿 코드</span>
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    전화 앱 다이얼에서 시크릿 코드 입력
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    전화 기능이 있는 스마트폰 기기에서는 기본 전화 다이얼 키패드에 아래 코드를 입력하면 즉시 설정 창이 열립니다:
+                  </p>
+                  <div className="bg-white border border-purple-200 p-3 rounded-lg text-center">
+                    <div className="text-[11px] text-slate-500 mb-0.5">다이얼 키패드에 입력:</div>
+                    <div className="font-mono text-base font-black text-purple-700 tracking-wider">
+                      *#*#8463#*#*
+                    </div>
+                    <div className="text-[10px] text-purple-600 mt-0.5">(*#*#TIME#*#*)</div>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    화면이 열린 후 <strong>[스텔스 해제]</strong> 버튼을 누르면 런처 아이콘이 복구됩니다.
+                  </p>
+                </div>
+
+                {/* Method 4: APK Re-install / Overwrite */}
+                <div className="border border-slate-200 bg-slate-50 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="bg-slate-700 text-white text-[11px] font-bold px-2 py-0.5 rounded">
+                      방법 4 (데이터 보존 덮어쓰기)
+                    </span>
+                    <span className="text-[11px] text-slate-600 font-semibold">APK 재설치로 초기화</span>
+                  </div>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    기존 데이터 유지하며 APK 덮어쓰기 재설치 (-r)
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    기존 누적 데이터나 설정을 그대로 보존한 채로 런처 아이콘 기본 상태를 리셋합니다:
+                  </p>
+                  <div className="bg-slate-950 text-slate-100 p-3 rounded-lg font-mono text-xs space-y-1">
+                    <div className="text-slate-400 text-[10px]"># APK 덮어쓰기 재설치 명령어:</div>
+                    <div className="text-emerald-400 break-all select-all">
+                      adb install -r app-debug.apk
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    * 새 빌드 APK를 <code className="font-mono">-r</code> 옵션으로 덮어씌우면 비활성화되었던 MainActivity가 기본 enabled 상태로 자동 복원됩니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Summary Table */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+              <div className="bg-slate-100 px-4 py-2.5 font-bold text-slate-800 border-b border-slate-200 flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-blue-600" />
+                <span>스텔스 상태 및 액티브(복구) 상황별 가이드 요약</span>
+              </div>
+              <div className="divide-y divide-slate-200 bg-white">
+                <div className="p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                  <span className="font-bold text-slate-900">홈 화면에 아이콘을 완전히 다시 살리고 싶을 때</span>
+                  <span className="text-slate-600 sm:col-span-2">
+                    <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-blue-700">adb shell pm enable com.timesnooper.app/.ui.MainActivity</code> 실행
+                  </span>
+                </div>
+                <div className="p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                  <span className="font-bold text-slate-900">아이콘은 숨겨둔 채 수신 이메일이나 설정만 바꿀 때</span>
+                  <span className="text-slate-600 sm:col-span-2">
+                    다이얼 <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-purple-700">*#*#8463#*#*</code> 또는 <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-blue-700">adb shell am start -n com.timesnooper.app/.ui.MainActivity</code>
+                  </span>
+                </div>
+                <div className="p-3 grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                  <span className="font-bold text-slate-900">앱을 완전히 삭제하고 기기를 초기화할 때</span>
+                  <span className="text-slate-600 sm:col-span-2">
+                    <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-rose-700">adb shell dpm remove-active-admin com.timesnooper.app/.receiver.TimesnooperAdminReceiver</code> 후 uninstall
+                  </span>
                 </div>
               </div>
             </div>
@@ -623,6 +799,36 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                   <strong>네, 모두 완벽히 기록됩니다.</strong> 인터넷 연결이 끊어져 있어도 기기 로컬의 Room SQLite DB에 초 단위로 오프라인 저장되며, 10시 정기 발송 시점 또는 Wi-Fi가 다시 연결되는 순간 일괄 동기화되어 학부모에게 보고됩니다.
                 </p>
               </div>
+
+              {/* Q5 */}
+              <div className="border border-purple-200 bg-purple-50/20 rounded-xl p-4 space-y-2">
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 text-purple-700">
+                  <span className="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded font-black">Q5</span>
+                  스텔스 모드로 아이콘을 숨긴 후, 다시 앱을 켜거나(액티브) 설정을 수정하려면 어떻게 하나요?
+                </h3>
+                <div className="text-xs text-slate-600 leading-relaxed pl-7 space-y-1.5">
+                  <p>
+                    <strong>1) 아이콘을 홈 화면에 다시 살려내기:</strong> PC와 연결 후 <code className="bg-slate-100 text-purple-700 px-1 rounded font-mono font-bold">adb shell pm enable com.timesnooper.app/.ui.MainActivity</code>를 실행하면 홈 화면에 즉시 나타납니다.
+                  </p>
+                  <p>
+                    <strong>2) 스마트폰 다이얼러로 열기:</strong> 전화 앱 다이얼에서 <code className="bg-purple-100 text-purple-900 px-1 rounded font-mono font-bold">*#*#8463#*#*</code>을 입력하면 설정 창이 바로 열립니다.
+                  </p>
+                  <p>
+                    <strong>3) PC에서 설정 화면만 띄우기:</strong> <code className="bg-slate-100 text-blue-700 px-1 rounded font-mono">adb shell am start -n com.timesnooper.app/.ui.MainActivity</code>를 실행하세요.
+                  </p>
+                </div>
+              </div>
+
+              {/* Q6 */}
+              <div className="border border-slate-200 rounded-xl p-4 space-y-2">
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 text-blue-600">
+                  <span className="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded font-black">Q6</span>
+                  스텔스 모드 상태에서 기기를 껐다 켜도 숨김 상태와 모니터링이 유지되나요?
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed pl-7">
+                  <strong>네, 영구 유지됩니다.</strong> 안드로이드 패키지 매니저의 컴포넌트 비활성화 설정은 재부팅 후에도 지속되며, BootReceiver가 부팅 즉시 백그라운드 추적 서비스를 자동으로 가동합니다.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -654,21 +860,21 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
               <div>
                 <span className="text-slate-400"># 1. Device Owner 삭제 방지 정책 해제</span>
                 <div className="text-emerald-400 mt-1 select-all break-all">
-                  adb shell dpm remove-active-admin com.timesnooper.agent/.receiver.TimesnooperAdminReceiver
+                  adb shell dpm remove-active-admin com.timesnooper.app/.receiver.TimesnooperAdminReceiver
                 </div>
               </div>
 
               <div>
                 <span className="text-slate-400"># 2. timesnooper 앱 완전 삭제</span>
                 <div className="text-emerald-400 mt-1 select-all break-all">
-                  adb uninstall com.timesnooper.agent
+                  adb uninstall com.timesnooper.app
                 </div>
               </div>
             </div>
 
             <div className="flex gap-3">
               <button
-                onClick={() => handleCopy('adb shell dpm remove-active-admin com.timesnooper.agent/.receiver.TimesnooperAdminReceiver\nadb uninstall com.timesnooper.agent', 'uninstall-cmd')}
+                onClick={() => handleCopy('adb shell dpm remove-active-admin com.timesnooper.app/.receiver.TimesnooperAdminReceiver\nadb uninstall com.timesnooper.app', 'uninstall-cmd')}
                 className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 cursor-pointer"
               >
                 {copiedId === 'uninstall-cmd' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

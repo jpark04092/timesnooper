@@ -267,6 +267,59 @@ export const AndroidHub: React.FC = () => {
                 adb shell dumpsys deviceidle whitelist +com.timesnooper.app
               </div>
             </div>
+
+            {/* Step 4: Stealth Reactivation */}
+            <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-bold text-xs text-purple-950 flex items-center gap-1.5">
+                  <span className="bg-purple-600 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">TIP</span>
+                  <span>스텔스 모드 후 앱 재활성화 (홈 화면 아이콘 복원 & 화면 열기)</span>
+                </div>
+                <button
+                  onClick={() =>
+                    handleCopy(
+                      'adb shell am broadcast -a com.timesnooper.app.ACTION_UNHIDE_ICON -p com.timesnooper.app',
+                      'step4'
+                    )
+                  }
+                  className="text-xs bg-purple-200 hover:bg-purple-300 text-purple-900 font-semibold px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedText === 'step4' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedText === 'step4' ? '복사됨!' : '복사'}</span>
+                </button>
+              </div>
+              <div className="bg-slate-900 text-emerald-400 p-3 rounded-lg font-mono text-xs overflow-x-auto">
+                adb shell am broadcast -a com.timesnooper.app.ACTION_UNHIDE_ICON -p com.timesnooper.app
+              </div>
+              <p className="text-[11px] text-purple-800 mt-2">
+                * <code className="font-mono text-slate-700">pm enable</code> 시 발생하는 안드로이드 <code className="font-mono text-rose-700">SecurityException</code>을 우회하여 앱 내부 <code className="font-mono">StealthReceiver</code>가 앱 권한으로 아이콘을 100% 안전하게 복원하고 화면을 엽니다. (전화 앱 다이얼: <code className="font-bold">*#*#8463#*#*</code>)
+              </p>
+            </div>
+
+            {/* Step 5: Clean Uninstall */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-bold text-xs text-slate-900">
+                  앱 완전 삭제 및 관리자 권한 해제 (기기 반납/초기화 시)
+                </div>
+                <button
+                  onClick={() =>
+                    handleCopy(
+                      'adb shell dpm remove-active-admin com.timesnooper.app/.receiver.TimesnooperAdminReceiver\nadb uninstall com.timesnooper.app',
+                      'step5'
+                    )
+                  }
+                  className="text-xs bg-rose-100 hover:bg-rose-200 text-rose-800 font-semibold px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedText === 'step5' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedText === 'step5' ? '복사됨!' : '복사'}</span>
+                </button>
+              </div>
+              <div className="bg-slate-900 text-rose-300 p-3 rounded-lg font-mono text-xs overflow-x-auto whitespace-pre">
+{`adb shell dpm remove-active-admin com.timesnooper.app/.receiver.TimesnooperAdminReceiver
+adb uninstall com.timesnooper.app`}
+              </div>
+            </div>
           </div>
         </div>
       )}

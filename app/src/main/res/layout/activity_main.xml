@@ -49,8 +49,17 @@
     <Button
         android:id="@+id/btnStealthMode"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="52dp"
         android:text="4. 스텔스 모드 (런처 아이콘 숨김)"
+        android:backgroundTint="#7C3AED"
         android:layout_marginTop="16dp" />
+
+    <Button
+        android:id="@+id/btnUnhideIcon"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="5. 스텔스 해제 (홈 화면 아이콘 복구)"
+        android:backgroundTint="#2563EB"
+        android:layout_marginTop="10dp" />
 
 </LinearLayout>

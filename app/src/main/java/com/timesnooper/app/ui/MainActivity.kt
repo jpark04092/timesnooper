@@ -40,6 +40,10 @@ class MainActivity : AppCompatActivity() {
             enableStealthMode()
         }
 
+        findViewById<Button>(R.id.btnUnhideIcon)?.setOnClickListener {
+            disableStealthMode()
+        }
+
         // 1. 필수 사용정보 접근 권한 체크 (UsageStats)
         if (!hasUsageStatsPermission()) {
             Toast.makeText(this, "아이 앱 사용시간 추적을 위해 '사용 정보 접근' 권한을 허용해주세요.", Toast.LENGTH_LONG).show()
@@ -98,5 +102,15 @@ class MainActivity : AppCompatActivity() {
         )
         Toast.makeText(this, "런처 아이콘이 숨겨졌습니다. 백그라운드에서 상시 작동합니다.", Toast.LENGTH_SHORT).show()
         finish()
+    }
+
+    private fun disableStealthMode() {
+        val componentName = ComponentName(this, MainActivity::class.java)
+        packageManager.setComponentEnabledSetting(
+            componentName,
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            PackageManager.DONT_KILL_APP
+        )
+        Toast.makeText(this, "런처 아이콘이 홈 화면에 다시 복구되었습니다.", Toast.LENGTH_SHORT).show()
     }
 }
