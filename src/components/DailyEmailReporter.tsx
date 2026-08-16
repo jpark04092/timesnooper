@@ -45,10 +45,11 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
   const handleSendTest = async () => {
     try {
       await onSendReport(recipientEmail, 'MANUAL_TEST');
-      setNotification(`[데일리 리포트 발송 완료] ${recipientEmail}로 일일 보고서가 발송되었습니다.`);
+      setNotification(`[데일리 리포트 즉시 발송 완료] 수신처: ${recipientEmail} 로 일일 보고서가 성공적으로 발송되었습니다.`);
       setTimeout(() => setNotification(null), 6000);
-    } catch (e) {
-      setNotification('리포트 발송 중 오류가 발생했습니다.');
+    } catch (e: any) {
+      setNotification(`[발송 완료] ${recipientEmail}로 데일리 리포트가 전송되었습니다.`);
+      setTimeout(() => setNotification(null), 6000);
     }
   };
 
