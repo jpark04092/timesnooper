@@ -1223,6 +1223,68 @@ class StealthReceiver : BroadcastReceiver() {
                 android:textColor="#0F172A"
                 android:layout_marginBottom="14dp" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📨 발신용 Gmail 계정 (리포트를 보낼 계정):"
+                android:textSize="12sp"
+                android:textColor="#475569"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/etSenderEmail"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="예: jpark04092@gmail.com"
+                android:inputType="textEmailAddress"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#F1F5F9"
+                android:textColor="#0F172A"
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔑 구글 16자리 앱 비밀번호 (Google App Password):"
+                android:textSize="12sp"
+                android:textColor="#475569"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/etSenderAppPassword"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="abcd efgh ijkl mnop (공백 무관)"
+                android:inputType="textPassword"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#F1F5F9"
+                android:textColor="#0F172A"
+                android:layout_marginBottom="6dp" />
+
+            <TextView
+                android:id="@+id/tvAppPasswordGuide"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="💡 구글 앱 비밀번호 발급 방법: myaccount.google.com/apppasswords 접속 → 로그인 후 이름(Timesnooper) 입력 → 생성된 16자리 영문 코드를 여기에 입력하고 [설정 저장]을 누르면 스마트폰에서 학부모님 Gmail로 직접 리포트가 1초 만에 전송됩니다."
+                android:textSize="11sp"
+                android:textColor="#64748B"
+                android:lineSpacingExtra="2dp"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:id="@+id/tvStatusLog"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#0F172A"
+                android:textColor="#38BDF8"
+                android:textSize="11sp"
+                android:padding="10dp"
+                android:fontFamily="monospace"
+                android:text="⚡ 대기 중: 앱 비밀번호 입력 후 [Gmail로 즉시 발송]을 누르세요."
+                android:layout_marginBottom="12dp" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -1234,7 +1296,7 @@ class StealthReceiver : BroadcastReceiver() {
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:text="이메일 설정 저장"
+                    android:text="설정 저장"
                     android:textSize="12sp"
                     android:backgroundTint="#0F172A"
                     android:layout_marginEnd="6dp" />
@@ -1244,7 +1306,7 @@ class StealthReceiver : BroadcastReceiver() {
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:text="테스트 메일 즉시 발송"
+                    android:text="Gmail로 즉시 발송"
                     android:textSize="12sp"
                     android:backgroundTint="#0284C7"
                     android:layout_marginStart="6dp" />
@@ -1371,7 +1433,7 @@ interface TimesnooperApiService {
 }
 
 object TimesnooperApiClient {
-    const val DEFAULT_BASE_URL = "https://ais-dev-2xjinejemuzfrzivhmre6f-252788179842.asia-northeast1.run.app/"
+    const val DEFAULT_BASE_URL = "https://ais-pre-2xjinejemuzfrzivhmre6f-252788179842.asia-northeast1.run.app/"
 
     private val gson = GsonBuilder()
         .setLenient()
@@ -1403,11 +1465,21 @@ object TimesnooperApiClient {
             val responseCode = response.code()
             val responseString = response.body()?.string() ?: response.errorBody()?.string() ?: ""
 
-            if (response.isSuccessful || responseCode in 200..299) {
+            val isHtmlResponse = responseString.trim().startsWith("<!DOCTYPE", ignoreCase = true) || 
+                                 responseString.trim().startsWith("<html", ignoreCase = true)
+
+            if (isHtmlResponse) {
+                NetworkResult(
+                    isSuccess = false,
+                    statusCode = responseCode,
+                    message = "서버에서 HTML이 반환되었습니다. ais-dev 대신 공개 주소(ais-pre)를 사용해야 합니다.",
+                    rawBody = "HTML 응답 수신됨 (ais-pre 주소 확인 필요)"
+                )
+            } else if (response.isSuccessful || responseCode in 200..299) {
                 NetworkResult(
                     isSuccess = true,
                     statusCode = responseCode,
-                    message = "리포트 전송 성공 (HTTP $responseCode)",
+                    message = "서버 통신 성공 (HTTP $responseCode)",
                     rawBody = responseString
                 )
             } else {

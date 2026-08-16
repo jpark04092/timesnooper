@@ -37,13 +37,15 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val KEY_PARENT_EMAIL = "parent_email"
         const val KEY_CHILD_NAME = "child_name"
-        const val KEY_SERVER_URL = "server_url"
+        const val KEY_SENDER_EMAIL = "sender_email"
+        const val KEY_SENDER_APP_PASSWORD = "sender_app_password"
     }
 
     private lateinit var prefs: SharedPreferences
     private lateinit var etParentEmail: EditText
     private lateinit var etChildName: EditText
-    private lateinit var etServerUrl: EditText
+    private lateinit var etSenderEmail: EditText
+    private lateinit var etSenderAppPassword: EditText
     private lateinit var tvStatusLog: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -54,16 +56,20 @@ class MainActivity : AppCompatActivity() {
 
         etParentEmail = findViewById(R.id.etParentEmail)
         etChildName = findViewById(R.id.etChildName)
-        etServerUrl = findViewById(R.id.etServerUrl)
+        etSenderEmail = findViewById(R.id.etSenderEmail)
+        etSenderAppPassword = findViewById(R.id.etSenderAppPassword)
         tvStatusLog = findViewById(R.id.tvStatusLog)
 
-        // 저장된 학부모 이메일 및 자녀 이름 불러오기
-        val savedEmail = prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com")
+        // 저장된 학부모 이메일 및 발신 계정 불러오기
+        val savedParentEmail = prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com")
         val savedChildName = prefs.getString(KEY_CHILD_NAME, "자녀 (갤럭시 탭)")
-        val savedServerUrl = prefs.getString(KEY_SERVER_URL, TimesnooperApiClient.DEFAULT_BASE_URL)
-        etParentEmail.setText(savedEmail)
+        val savedSenderEmail = prefs.getString(KEY_SENDER_EMAIL, "jpark04092@gmail.com")
+        val savedPassword = prefs.getString(KEY_SENDER_APP_PASSWORD, "")
+
+        etParentEmail.setText(savedParentEmail)
         etChildName.setText(savedChildName)
-        etServerUrl.setText(savedServerUrl)
+        etSenderEmail.setText(savedSenderEmail)
+        etSenderAppPassword.setText(savedPassword)
 
         // 이메일 설정 저장 버튼
         findViewById<Button>(R.id.btnSaveSettings)?.setOnClickListener {
@@ -118,38 +124,57 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveEmailSettings() {
-        val email = etParentEmail.text.toString().trim()
+        val parentEmail = etParentEmail.text.toString().trim()
         val childName = etChildName.text.toString().trim()
-        val serverUrl = etServerUrl.text.toString().trim()
+        val senderEmail = etSenderEmail.text.toString().trim()
+        val appPassword = etSenderAppPassword.text.toString().trim()
 
-        if (email.isEmpty() || !email.contains("@")) {
-            Toast.makeText(this, "올바른 이메일 주소를 입력해주세요.", Toast.LENGTH_SHORT).show()
+        if (parentEmail.isEmpty() || !parentEmail.contains("@")) {
+            Toast.makeText(this, "수신할 학부모 이메일 주소를 올바르게 입력해주세요.", Toast.LENGTH_SHORT).show()
             return
         }
 
         prefs.edit()
-            .putString(KEY_PARENT_EMAIL, email)
+            .putString(KEY_PARENT_EMAIL, parentEmail)
             .putString(KEY_CHILD_NAME, if (childName.isEmpty()) "자녀" else childName)
-            .putString(KEY_SERVER_URL, if (serverUrl.isEmpty()) TimesnooperApiClient.DEFAULT_BASE_URL else serverUrl)
+            .putString(KEY_SENDER_EMAIL, if (senderEmail.isEmpty()) parentEmail else senderEmail)
+            .putString(KEY_SENDER_APP_PASSWORD, appPassword)
             .apply()
 
-        tvStatusLog.text = "💾 설정 저장 완료 (수신처: $email, 서버: ${if (serverUrl.isEmpty()) TimesnooperApiClient.DEFAULT_BASE_URL else serverUrl})"
+        tvStatusLog.text = "💾 설정 저장 완료 (수신처: $parentEmail, 발신: ${if (senderEmail.isEmpty()) parentEmail else senderEmail})"
         Toast.makeText(this, "설정이 성공적으로 저장되었습니다.", Toast.LENGTH_SHORT).show()
     }
 
     private fun sendLiveTestReport() {
-        val email = etParentEmail.text.toString().trim().ifEmpty {
+        val parentEmail = etParentEmail.text.toString().trim().ifEmpty {
             prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com") ?: "jpark04092@gmail.com"
         }
         val childName = etChildName.text.toString().trim().ifEmpty {
             prefs.getString(KEY_CHILD_NAME, "자녀") ?: "자녀"
         }
-        val serverUrl = etServerUrl.text.toString().trim().ifEmpty {
-            prefs.getString(KEY_SERVER_URL, TimesnooperApiClient.DEFAULT_BASE_URL) ?: TimesnooperApiClient.DEFAULT_BASE_URL
+        val senderEmail = etSenderEmail.text.toString().trim().ifEmpty {
+            prefs.getString(KEY_SENDER_EMAIL, parentEmail) ?: parentEmail
+        }
+        val appPassword = etSenderAppPassword.text.toString().trim().ifEmpty {
+            prefs.getString(KEY_SENDER_APP_PASSWORD, "") ?: ""
         }
 
-        tvStatusLog.text = "⏳ [$email] 대상으로 일일 리포트 서버 전송 중..."
-        Toast.makeText(this, "$email 로 리포트 전송 중...", Toast.LENGTH_SHORT).show()
+        if (appPassword.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("🔑 구글 앱 비밀번호 필요")
+                .setMessage("스마트폰에서 학부모님의 Gmail($parentEmail)로 직접 이메일을 발송하기 위해 발신용 16자리 앱 비밀번호가 필요합니다.\n\n" +
+                        "1. myaccount.google.com/apppasswords 접속\n" +
+                        "2. 앱 이름(Timesnooper) 입력 후 16자리 비밀번호 발급\n" +
+                        "3. 앱 비밀번호 칸에 입력 후 [설정 저장]을 누르세요.\n\n" +
+                        "※ 1회 등록 시 매일 밤 자동 리포트도 스마트폰에서 Gmail로 직접 완벽하게 발송됩니다.")
+                .setPositiveButton("확인", null)
+                .show()
+            tvStatusLog.text = "⚠️ 앱 비밀번호 미입력: 16자리 구글 앱 비밀번호를 입력하고 저장해주세요."
+            return
+        }
+
+        tvStatusLog.text = "⏳ [$senderEmail] -> [$parentEmail] Gmail 직접 발송 중..."
+        Toast.makeText(this, "$parentEmail 로 리포트 발송 중...", Toast.LENGTH_SHORT).show()
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -202,27 +227,32 @@ class MainActivity : AppCompatActivity() {
                     deviceId = Build.MODEL ?: "android_device",
                     deviceName = "${Build.MANUFACTURER} ${Build.MODEL}",
                     childName = childName,
-                    recipientEmail = email,
+                    recipientEmail = parentEmail,
                     androidVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
                     reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
                     totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
                     apps = appStatList
                 )
 
-                val result = TimesnooperApiClient.sendDailyReport(payload, serverUrl)
+                val sendResult = com.timesnooper.app.network.DirectEmailSender.sendReportViaDirectSmtp(
+                    payload = payload,
+                    senderEmail = senderEmail,
+                    senderAppPassword = appPassword
+                )
+
                 withContext(Dispatchers.Main) {
-                    if (result.isSuccess) {
-                        tvStatusLog.text = "✅ [성공] Gmail($email)로 발송 완료!\n응답: ${result.rawBody ?: result.message}"
+                    if (sendResult.isSuccess) {
+                        tvStatusLog.text = "🎉 [성공] Gmail($parentEmail)로 메일 직접 발송 완료!\n발송 시각: ${SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(Date())}"
                         Toast.makeText(
                             this@MainActivity,
-                            "성공: $email 로 일일 리포트가 즉시 발송되었습니다!",
+                            "성공: $parentEmail 로 일일 리포트가 성공적으로 발송되었습니다!",
                             Toast.LENGTH_LONG
                         ).show()
                     } else {
-                        tvStatusLog.text = "❌ [실패 - HTTP ${result.statusCode}]\n오류: ${result.message}\n응답 상세: ${result.rawBody}"
+                        tvStatusLog.text = "❌ [발송 실패]\n원인: ${sendResult.message}"
                         AlertDialog.Builder(this@MainActivity)
-                            .setTitle("서버 전송 오류 (${result.statusCode})")
-                            .setMessage("원인: ${result.message}\n\n서버 주소: $serverUrl\n\n상세: ${result.rawBody}")
+                            .setTitle("Gmail 발송 오류")
+                            .setMessage("오류 원인:\n${sendResult.message}\n\n상세:\n${sendResult.errorDetail ?: "없음"}")
                             .setPositiveButton("확인", null)
                             .show()
                     }
@@ -231,8 +261,8 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     tvStatusLog.text = "❌ [예외 발생] ${e.localizedMessage ?: e.message}"
                     AlertDialog.Builder(this@MainActivity)
-                        .setTitle("통신 예외 발생")
-                        .setMessage("네트워크 오류:\n${e.localizedMessage ?: e.message}")
+                        .setTitle("발송 예외 발생")
+                        .setMessage("오류:\n${e.localizedMessage ?: e.message}")
                         .setPositiveButton("확인", null)
                         .show()
                 }

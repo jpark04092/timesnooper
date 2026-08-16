@@ -25,8 +25,8 @@ interface TimesnooperApiService {
 }
 
 object TimesnooperApiClient {
-    // Timesnooper Backend Server Endpoint
-    const val DEFAULT_BASE_URL = "https://ais-dev-2xjinejemuzfrzivhmre6f-252788179842.asia-northeast1.run.app/"
+    // Timesnooper Backend Server Endpoint (공개 접근 가능한 ais-pre URL)
+    const val DEFAULT_BASE_URL = "https://ais-pre-2xjinejemuzfrzivhmre6f-252788179842.asia-northeast1.run.app/"
 
     private val gson = GsonBuilder()
         .setLenient()
@@ -58,18 +58,29 @@ object TimesnooperApiClient {
             val responseCode = response.code()
             val responseString = response.body()?.string() ?: response.errorBody()?.string() ?: ""
 
-            if (response.isSuccessful || responseCode in 200..299) {
+            // HTML 응답인지 검사 (ais-dev 인증 페이지 등 잘못된 URL 접근 시)
+            val isHtmlResponse = responseString.trim().startsWith("<!DOCTYPE", ignoreCase = true) || 
+                                 responseString.trim().startsWith("<html", ignoreCase = true)
+
+            if (isHtmlResponse) {
+                NetworkResult(
+                    isSuccess = false,
+                    statusCode = responseCode,
+                    message = "⚠️ 서버에서 HTML(로그인/오류 페이지)이 반환되었습니다. ais-dev 주소 대신 공개 주소(ais-pre)를 사용해야 합니다.",
+                    rawBody = "수신된 HTML 응답 (ais-pre 주소로 변경 필요)"
+                )
+            } else if (response.isSuccessful || responseCode in 200..299) {
                 NetworkResult(
                     isSuccess = true,
                     statusCode = responseCode,
-                    message = "리포트 전송 성공 (HTTP $responseCode)",
+                    message = "서버 통신 성공 (HTTP $responseCode)",
                     rawBody = responseString
                 )
             } else {
                 NetworkResult(
                     isSuccess = false,
                     statusCode = responseCode,
-                    message = "서버 응답: HTTP $responseCode",
+                    message = "서버 응답 오류 (HTTP $responseCode)",
                     rawBody = responseString
                 )
             }

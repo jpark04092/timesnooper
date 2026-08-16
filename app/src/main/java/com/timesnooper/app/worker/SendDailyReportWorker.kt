@@ -62,6 +62,8 @@ class SendDailyReportWorker(
             val prefs = applicationContext.getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
             val parentEmail = prefs.getString("parent_email", "jpark04092@gmail.com") ?: "jpark04092@gmail.com"
             val childName = prefs.getString("child_name", "자녀") ?: "자녀"
+            val senderEmail = prefs.getString("sender_email", parentEmail) ?: parentEmail
+            val appPassword = prefs.getString("sender_app_password", "") ?: ""
 
             val payload = ReportPayload(
                 deviceId = Build.MODEL ?: "unknown_device",
@@ -73,6 +75,20 @@ class SendDailyReportWorker(
                 totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
                 apps = appStatList
             )
+
+            if (appPassword.isNotBlank()) {
+                val directResult = com.timesnooper.app.network.DirectEmailSender.sendReportViaDirectSmtp(
+                    payload = payload,
+                    senderEmail = senderEmail,
+                    senderAppPassword = appPassword
+                )
+                if (directResult.isSuccess) {
+                    Log.i("Timesnooper", "Direct Gmail Daily Report successfully sent to $parentEmail!")
+                    return@withContext Result.success()
+                } else {
+                    Log.w("Timesnooper", "Direct Gmail failed: ${directResult.message}, trying server fallback...")
+                }
+            }
 
             val result = TimesnooperApiClient.sendDailyReport(payload)
             if (result.isSuccess) {

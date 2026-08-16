@@ -93,22 +93,52 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🌐 연결 서버 URL (대시보드 백엔드 주소):"
+                android:text="📨 발신용 Gmail 계정 (리포트를 보낼 계정):"
                 android:textSize="12sp"
                 android:textColor="#475569"
                 android:layout_marginBottom="4dp" />
 
             <EditText
-                android:id="@+id/etServerUrl"
+                android:id="@+id/etSenderEmail"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:hint="https://ais-dev-2xjinejemuzfrzivhmre6f-252788179842.asia-northeast1.run.app"
-                android:inputType="textUri"
-                android:textSize="12sp"
+                android:hint="예: jpark04092@gmail.com"
+                android:inputType="textEmailAddress"
+                android:textSize="14sp"
                 android:padding="12dp"
                 android:background="#F1F5F9"
                 android:textColor="#0F172A"
-                android:layout_marginBottom="14dp" />
+                android:layout_marginBottom="10dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔑 구글 16자리 앱 비밀번호 (Google App Password):"
+                android:textSize="12sp"
+                android:textColor="#475569"
+                android:layout_marginBottom="4dp" />
+
+            <EditText
+                android:id="@+id/etSenderAppPassword"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="abcd efgh ijkl mnop (공백 무관)"
+                android:inputType="textPassword"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#F1F5F9"
+                android:textColor="#0F172A"
+                android:layout_marginBottom="6dp" />
+
+            <TextView
+                android:id="@+id/tvAppPasswordGuide"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="💡 구글 앱 비밀번호 발급 방법: myaccount.google.com/apppasswords 접속 → 로그인 후 이름(Timesnooper) 입력 → 생성된 16자리 영문 코드를 여기에 입력하고 [설정 저장]을 누르면 스마트폰에서 학부모님 Gmail로 직접 리포트가 1초 만에 전송됩니다."
+                android:textSize="11sp"
+                android:textColor="#64748B"
+                android:lineSpacingExtra="2dp"
+                android:layout_marginBottom="12dp" />
 
             <TextView
                 android:id="@+id/tvStatusLog"
@@ -119,7 +149,7 @@
                 android:textSize="11sp"
                 android:padding="10dp"
                 android:fontFamily="monospace"
-                android:text="⚡ 대기 중: 이메일 설정 후 [테스트 메일 즉시 발송]을 누르세요."
+                android:text="⚡ 대기 중: 앱 비밀번호 입력 후 [Gmail로 즉시 발송]을 누르세요."
                 android:layout_marginBottom="12dp" />
 
             <LinearLayout
@@ -143,7 +173,7 @@
                     android:layout_width="0dp"
                     android:layout_height="48dp"
                     android:layout_weight="1"
-                    android:text="테스트 메일 발송"
+                    android:text="Gmail로 즉시 발송"
                     android:textSize="12sp"
                     android:backgroundTint="#0284C7"
                     android:layout_marginStart="6dp" />
