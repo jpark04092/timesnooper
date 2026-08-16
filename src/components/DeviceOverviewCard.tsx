@@ -105,9 +105,9 @@ export const DeviceOverviewCard: React.FC<DeviceOverviewCardProps> = ({
                   <Activity className="w-3 h-3 text-blue-600" />
                   <span>부팅 부활: 작동</span>
                 </div>
-                <div className="bg-amber-50 text-amber-800 rounded px-2 py-1 flex items-center gap-1 font-semibold border border-amber-100" title="매일 10:00 알람 정확 예약">
+                <div className="bg-amber-50 text-amber-800 rounded px-2 py-1 flex items-center gap-1 font-semibold border border-amber-100" title={`매일 ${device.scheduledReportTime || '22:00'} 알람 정확 예약`}>
                   <ShieldCheck className="w-3 h-3 text-amber-600" />
-                  <span>10시 리포트: 무결</span>
+                  <span>{device.scheduledReportTime || '22:00'} 리포트: 무결</span>
                 </div>
               </div>
 

@@ -9,17 +9,18 @@ import { DeviceOverviewCard } from './components/DeviceOverviewCard';
 import { UsageAnalyticsView } from './components/UsageAnalyticsView';
 import { DailyEmailReporter } from './components/DailyEmailReporter';
 import { AndroidHub } from './components/AndroidHub';
+import { UserManualGuide } from './components/UserManualGuide';
 import { SimulateUsageModal } from './components/SimulateUsageModal';
 import { NewDeviceModal } from './components/NewDeviceModal';
 import { ChildDevice, EmailReportLog } from './types';
 import { INITIAL_DEVICES, INITIAL_EMAIL_LOGS } from './data/initialDevices';
-import { ShieldCheck, Mail, Smartphone, Code2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Mail, Smartphone, Code2, AlertCircle, BookOpen } from 'lucide-react';
 
 export default function App() {
   const [devices, setDevices] = useState<ChildDevice[]>(INITIAL_DEVICES);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>(INITIAL_DEVICES[0].id);
   const [emailLogs, setEmailLogs] = useState<EmailReportLog[]>(INITIAL_EMAIL_LOGS);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'email-report' | 'android-guide' | 'history'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'email-report' | 'manual' | 'android-guide' | 'history'>('dashboard');
 
   const [isSendingReport, setIsSendingReport] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -66,8 +67,8 @@ export default function App() {
 
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId) || devices[0];
 
-  // Send Daily 10 AM Report
-  const handleSendReport = async (email: string, mode: 'MANUAL_TEST' | 'AUTOMATIC_10AM' = 'MANUAL_TEST') => {
+  // Send Daily Scheduled Report
+  const handleSendReport = async (email: string, mode: 'MANUAL_TEST' | 'AUTOMATIC_SCHEDULED' | 'AUTOMATIC_10AM' = 'MANUAL_TEST') => {
     setIsSendingReport(true);
     try {
       const res = await fetch('/api/send-report', {
@@ -85,7 +86,7 @@ export default function App() {
         if (data.log) {
           setEmailLogs((prev) => [data.log, ...prev]);
         }
-        setGlobalBanner(`[10:00 데일리 리포트 발송 완료] ${email || selectedDevice.reportRecipientEmail}로 일일 보고서가 발송되었습니다.`);
+        setGlobalBanner(`[데일리 리포트 발송 완료] ${email || selectedDevice.reportRecipientEmail}로 일일 보고서가 성공적으로 발송되었습니다.`);
         setTimeout(() => setGlobalBanner(null), 6000);
       }
     } catch (e) {
@@ -106,7 +107,7 @@ export default function App() {
         aiAdvice: 'EBS 인강 및 유익한 콘텐츠 사용시간이 잘 유지되고 있습니다.',
       };
       setEmailLogs((prev) => [newLog, ...prev]);
-      setGlobalBanner(`[10:00 데일리 리포트 발송 완료] ${email || selectedDevice.reportRecipientEmail}로 발송되었습니다.`);
+      setGlobalBanner(`[데일리 리포트 발송 완료] ${email || selectedDevice.reportRecipientEmail}로 발송되었습니다.`);
       setTimeout(() => setGlobalBanner(null), 6000);
     } finally {
       setIsSendingReport(false);
@@ -134,6 +135,15 @@ export default function App() {
     );
   };
 
+  // Update scheduled report time
+  const handleUpdateScheduleTime = (newTime: string) => {
+    setDevices((prev) =>
+      prev.map((d) => (d.id === selectedDevice.id ? { ...d, scheduledReportTime: newTime } : d))
+    );
+    setGlobalBanner(`[설정 저장] ${selectedDevice.childName}의 데일리 리포트 발송 시각이 매일 "${newTime}" (오후/지정 시각)으로 변경되었습니다.`);
+    setTimeout(() => setGlobalBanner(null), 4000);
+  };
+
   // Add new device
   const handleAddDevice = (deviceData: any) => {
     const newId = `device-${Date.now()}`;
@@ -148,7 +158,7 @@ export default function App() {
       stealthModeEnabled: true,
       lastHeartbeat: new Date().toISOString(),
       registeredAt: new Date().toISOString(),
-      scheduledReportTime: '10:00',
+      scheduledReportTime: deviceData.scheduledReportTime || '22:00',
       todayTelemetry: {
         deviceId: newId,
         date: new Date().toISOString().split('T')[0],
@@ -303,7 +313,7 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 2: 10 AM Daily Email Delivery Center */}
+        {/* Tab 2: Daily Email Delivery Center */}
         {activeTab === 'email-report' && (
           <DailyEmailReporter
             device={selectedDevice}
@@ -311,10 +321,19 @@ export default function App() {
             onSendReport={handleSendReport}
             isSending={isSendingReport}
             onUpdateEmail={handleUpdateEmail}
+            onUpdateScheduleTime={handleUpdateScheduleTime}
           />
         )}
 
-        {/* Tab 3: Android Architecture & ADB Setup Guide */}
+        {/* Tab 3: Installation Guide & Official User Manual */}
+        {activeTab === 'manual' && (
+          <UserManualGuide
+            onGoToAdbHub={() => setActiveTab('android-guide')}
+            onGoToEmailCenter={() => setActiveTab('email-report')}
+          />
+        )}
+
+        {/* Tab 4: Android Architecture & ADB Source Explorer */}
         {activeTab === 'android-guide' && <AndroidHub />}
       </main>
 
@@ -324,7 +343,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-800">timesnooper</span>
             <span>•</span>
-            <span>안드로이드 12+ 및 구형 태블릿 백그라운드 추적 & 매일 10시 학부모 데일리 리포트</span>
+            <span>안드로이드 12+ 및 구형 태블릿 백그라운드 추적 & 학부모 데일리 리포트 (기본 오후 10시 / 시각 설정 가능)</span>
           </div>
           <div className="text-slate-400">
             Android Enterprise Device Owner · WorkManager · UsageStatsManager

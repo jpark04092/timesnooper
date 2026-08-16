@@ -11,6 +11,7 @@ interface NewDeviceModalProps {
     androidVersion: string;
     isTablet: boolean;
     reportRecipientEmail: string;
+    scheduledReportTime: string;
     dailyGoalLimitMinutes: number;
   }) => void;
 }
@@ -26,6 +27,7 @@ export const NewDeviceModal: React.FC<NewDeviceModalProps> = ({
   const [androidVersion, setAndroidVersion] = useState('Android 13 (API 33)');
   const [isTablet, setIsTablet] = useState(true);
   const [reportRecipientEmail, setReportRecipientEmail] = useState('jpark04092@gmail.com');
+  const [scheduledReportTime, setScheduledReportTime] = useState('22:00');
   const [dailyGoalLimitMinutes, setDailyGoalLimitMinutes] = useState(180);
 
   if (!isOpen) return null;
@@ -41,6 +43,7 @@ export const NewDeviceModal: React.FC<NewDeviceModalProps> = ({
       androidVersion,
       isTablet,
       reportRecipientEmail,
+      scheduledReportTime,
       dailyGoalLimitMinutes,
     });
 
@@ -125,15 +128,26 @@ export const NewDeviceModal: React.FC<NewDeviceModalProps> = ({
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">10시 데일리 리포트 수신 이메일</label>
-            <input
-              type="email"
-              required
-              value={reportRecipientEmail}
-              onChange={(e) => setReportRecipientEmail(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-blue-500 outline-none"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">데일리 리포트 수신 이메일 *</label>
+              <input
+                type="email"
+                required
+                value={reportRecipientEmail}
+                onChange={(e) => setReportRecipientEmail(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-blue-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">정기 발송 시각</label>
+              <input
+                type="time"
+                value={scheduledReportTime}
+                onChange={(e) => setScheduledReportTime(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-bold focus:bg-white focus:border-blue-500 outline-none"
+              />
+            </div>
           </div>
 
           <div className="flex gap-2 pt-2">

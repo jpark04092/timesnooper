@@ -46,7 +46,7 @@ export interface ChildDevice {
   lastHeartbeat: string;
   registeredAt: string;
   reportRecipientEmail: string;
-  scheduledReportTime: string; // "10:00"
+  scheduledReportTime: string; // e.g. "22:00"
   dailyGoalLimitMinutes: number; // e.g. 180 (3 hours)
   todayTelemetry: DeviceTelemetry;
   yesterdayTelemetry?: DeviceTelemetry;
@@ -63,7 +63,7 @@ export interface EmailReportLog {
   totalScreenTimeMinutes: number;
   topApp: string;
   status: 'DELIVERED' | 'SCHEDULED' | 'FAILED';
-  deliveryMode: 'AUTOMATIC_10AM' | 'MANUAL_TEST';
+  deliveryMode: 'AUTOMATIC_SCHEDULED' | 'AUTOMATIC_10AM' | 'MANUAL_TEST';
   htmlPreview: string;
   aiAdvice?: string;
 }
@@ -71,7 +71,7 @@ export interface EmailReportLog {
 export interface AndroidProjectFile {
   name: string;
   path: string;
-  language: 'kotlin' | 'xml' | 'gradle' | 'shell';
+  language: 'kotlin' | 'xml' | 'gradle' | 'shell' | 'yaml' | 'json' | 'markdown';
   description: string;
   content: string;
 }

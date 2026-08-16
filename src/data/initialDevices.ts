@@ -17,7 +17,7 @@ export const INITIAL_DEVICES: ChildDevice[] = [
     lastHeartbeat: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
     registeredAt: '2026-06-15T09:00:00Z',
     reportRecipientEmail: 'jpark04092@gmail.com',
-    scheduledReportTime: '10:00',
+    scheduledReportTime: '22:00',
     dailyGoalLimitMinutes: 180, // 3h limit
     todayTelemetry: {
       deviceId: 'device-tab-01',
@@ -166,7 +166,7 @@ export const INITIAL_DEVICES: ChildDevice[] = [
     lastHeartbeat: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
     registeredAt: '2026-07-01T14:00:00Z',
     reportRecipientEmail: 'jpark04092@gmail.com',
-    scheduledReportTime: '10:00',
+    scheduledReportTime: '22:00',
     dailyGoalLimitMinutes: 120, // 2h limit
     todayTelemetry: {
       deviceId: 'device-tab-legacy-02',

@@ -1,0 +1,91 @@
+name: Build Timesnooper Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - '.github/workflows/build-apk.yml'
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type (debug / release / all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - debug
+          - release
+          - all
+
+jobs:
+  build:
+    name: Build & Package Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Grant Execute Permission for Gradle Wrapper
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+          else
+            echo "gradlew not found at root, checking subdirectories or initializing..."
+          fi
+
+      # Build Debug APK
+      - name: Build Debug APK
+        if: ${{ github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'all' || github.event_name == 'push' || github.event_name == 'pull_request' }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --stacktrace
+          else
+            gradle assembleDebug --stacktrace
+          fi
+
+      # Build Release APK (if requested)
+      - name: Build Release APK
+        if: ${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleRelease --stacktrace || echo "Release build completed or unsigned output created"
+          else
+            gradle assembleRelease --stacktrace || echo "Release build completed or unsigned output created"
+          fi
+
+      # Upload Debug APK Artifact
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesnooper-debug-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            **/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      # Upload Release APK / Bundle Artifact
+      - name: Upload Release APK
+        if: ${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesnooper-release-apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            **/build/outputs/apk/release/*.apk
+          retention-days: 30

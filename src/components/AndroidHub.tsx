@@ -16,13 +16,17 @@ import {
   Smartphone,
   Tablet,
   CheckCircle2,
-  FileCode
+  FileCode,
+  Github,
+  Play,
+  PackageCheck,
+  FolderGit2
 } from 'lucide-react';
 
 export const AndroidHub: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<AndroidProjectFile>(ANDROID_SOURCE_FILES[0]);
   const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'architecture' | 'adb-setup' | 'code-explorer'>('architecture');
+  const [activeTab, setActiveTab] = useState<'architecture' | 'adb-setup' | 'github-actions' | 'code-explorer'>('architecture');
 
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -83,6 +87,17 @@ export const AndroidHub: React.FC = () => {
               }`}
             >
               ADB 원클릭 명령어
+            </button>
+            <button
+              onClick={() => setActiveTab('github-actions')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'github-actions'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <Github className="w-3.5 h-3.5" />
+              <span>GitHub Actions APK 빌드</span>
             </button>
             <button
               onClick={() => setActiveTab('code-explorer')}
@@ -256,7 +271,99 @@ export const AndroidHub: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Code Explorer */}
+      {/* Tab 3: GitHub Actions CI/CD Build Hub */}
+      {activeTab === 'github-actions' && (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Github className="w-5 h-5 text-slate-900" />
+                  <h3 className="font-bold text-slate-900 text-base">GitHub Actions 무인 자동 APK 빌드 워크플로우</h3>
+                  <span className="bg-emerald-50 text-emerald-700 text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-200">
+                    Java 17 + Gradle 캐싱
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  로컬에 Android Studio를 설치할 필요 없이, GitHub 저장소에 코드를 Push하거나 원클릭 수동 실행(workflow_dispatch)하면 1~2분 만에 설치용 APK가 자동 생성됩니다.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  const wf = ANDROID_SOURCE_FILES.find((f) => f.name === 'build-apk.yml');
+                  if (wf) handleDownloadFile(wf);
+                }}
+                className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-2 cursor-pointer shrink-0 shadow-sm"
+              >
+                <Download className="w-4 h-4" />
+                <span>build-apk.yml 다운로드</span>
+              </button>
+            </div>
+
+            {/* 3 Step Guide */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
+                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center font-bold">1</span>
+                  <span>파일 경로 생성 및 커밋</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  GitHub 저장소의 <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-blue-700">.github/workflows/build-apk.yml</code> 경로에 워크플로우 파일을 추가하고 Push합니다.
+                </p>
+              </div>
+
+              <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
+                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center font-bold">2</span>
+                  <span>Actions 탭에서 빌드 감지</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  저장소의 <strong>[Actions]</strong> 탭으로 이동하면 자동으로 <strong className="text-slate-900">Build Timesnooper Android APK</strong> 작업이 실행되며 Ubuntu 가상머신에서 빌드됩니다.
+                </p>
+              </div>
+
+              <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
+                  <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center font-bold">3</span>
+                  <span>Artifacts에서 APK 다운로드</span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  빌드가 완료되면 하단 <strong>Artifacts</strong> 영역에 생성된 <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-emerald-700">timesnooper-debug-apk</code>를 클릭하여 다운로드합니다.
+                </p>
+              </div>
+            </div>
+
+            {/* Workflow YAML Preview & Copy */}
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <FileCode className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs font-bold text-slate-800">.github/workflows/build-apk.yml 전체 워크플로우 코드</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const wf = ANDROID_SOURCE_FILES.find((f) => f.name === 'build-apk.yml');
+                    if (wf) handleCopy(wf.content, 'workflow-copy');
+                  }}
+                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  {copiedText === 'workflow-copy' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedText === 'workflow-copy' ? '복사됨!' : 'YAML 코드 복사'}</span>
+                </button>
+              </div>
+
+              <pre className="bg-slate-950 text-slate-200 text-xs font-mono p-4 rounded-xl overflow-x-auto max-h-[380px] overflow-y-auto leading-relaxed border border-slate-800">
+                <code>
+                  {ANDROID_SOURCE_FILES.find((f) => f.name === 'build-apk.yml')?.content}
+                </code>
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Code Explorer */}
       {activeTab === 'code-explorer' && (
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm grid grid-cols-1 md:grid-cols-12">
           {/* File sidebar (4 cols) */}

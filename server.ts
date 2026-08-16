@@ -63,7 +63,7 @@ function generateReportEmailHtml(device: ChildDevice, telemetry: DeviceTelemetry
           <span style="font-size: 12px; font-weight: 700; letter-spacing: 0.05em; background: #3b82f6; color: #ffffff; padding: 4px 10px; border-radius: 6px;">
             timesnooper 데일리 리포트
           </span>
-          <span style="font-size: 13px; color: #94a3b8;">매일 오전 10:00 정기 발송</span>
+          <span style="font-size: 13px; color: #94a3b8;">매일 ${device.scheduledReportTime || '22:00'} 정기 발송</span>
         </div>
         <h1 style="margin: 8px 0 4px; font-size: 22px; font-weight: 800; color: #ffffff;">
           ${device.childName} 기기 일일 사용 리포트
@@ -134,7 +134,7 @@ function generateReportEmailHtml(device: ChildDevice, telemetry: DeviceTelemetry
 
         <!-- Footer -->
         <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 11px; color: #94a3b8; text-align: center;">
-          본 메일은 timesnooper 안드로이드 백그라운드 데몬에 의해 수신자 (${device.reportRecipientEmail})로 매일 오전 10시 자동 발송됩니다.<br />
+          본 메일은 timesnooper 안드로이드 백그라운드 데몬에 의해 수신자 (${device.reportRecipientEmail})로 매일 ${device.scheduledReportTime || '22:00'} 자동 발송됩니다.<br />
           timesnooper Agent v1.0.0 (Android 12+ / Legacy Tablet Support)
         </div>
       </div>
@@ -167,7 +167,7 @@ app.post('/api/devices', (req: Request, res: Response) => {
     lastHeartbeat: new Date().toISOString(),
     registeredAt: new Date().toISOString(),
     reportRecipientEmail: reportRecipientEmail || 'jpark04092@gmail.com',
-    scheduledReportTime: '10:00',
+    scheduledReportTime: req.body.scheduledReportTime || '22:00',
     dailyGoalLimitMinutes: Number(dailyGoalLimitMinutes) || 180,
     todayTelemetry: {
       deviceId: `device-${Date.now()}`,
@@ -307,7 +307,7 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
     totalScreenTimeMinutes: telemetry.screenTimeMinutes,
     topApp,
     status: 'DELIVERED',
-    deliveryMode: mode === 'MANUAL_TEST' ? 'MANUAL_TEST' : 'AUTOMATIC_10AM',
+    deliveryMode: mode === 'MANUAL_TEST' ? 'MANUAL_TEST' : 'AUTOMATIC_SCHEDULED',
     htmlPreview: htmlContent,
     aiAdvice
   };
@@ -316,7 +316,7 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
 
   res.json({
     success: true,
-    message: `[오전 10:00 리포트] ${emailToUse} (부모님) 이메일로 성공적으로 리포트가 발송되었습니다.`,
+    message: `[데일리 리포트] ${emailToUse} (부모님) 이메일로 성공적으로 리포트가 발송되었습니다.`,
     log: newLog
   });
 });

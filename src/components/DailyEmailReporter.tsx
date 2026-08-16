@@ -18,9 +18,10 @@ import {
 interface DailyEmailReporterProps {
   device: ChildDevice;
   emailLogs: EmailReportLog[];
-  onSendReport: (email: string, mode: 'MANUAL_TEST' | 'AUTOMATIC_10AM') => Promise<void>;
+  onSendReport: (email: string, mode: 'MANUAL_TEST' | 'AUTOMATIC_SCHEDULED') => Promise<void>;
   isSending: boolean;
   onUpdateEmail: (newEmail: string) => void;
+  onUpdateScheduleTime: (newTime: string) => void;
 }
 
 export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
@@ -29,8 +30,10 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
   onSendReport,
   isSending,
   onUpdateEmail,
+  onUpdateScheduleTime,
 }) => {
   const [recipientEmail, setRecipientEmail] = useState(device.reportRecipientEmail || 'jpark04092@gmail.com');
+  const [scheduledTime, setScheduledTime] = useState(device.scheduledReportTime || '22:00');
   const [activeLogId, setActiveLogId] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
 
@@ -42,17 +45,18 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
   const handleSendTest = async () => {
     try {
       await onSendReport(recipientEmail, 'MANUAL_TEST');
-      setNotification(`[10:00 데일리 리포트 발송 완료] ${recipientEmail}로 이메일이 발송되었습니다.`);
+      setNotification(`[데일리 리포트 발송 완료] ${recipientEmail}로 일일 보고서가 발송되었습니다.`);
       setTimeout(() => setNotification(null), 6000);
     } catch (e) {
       setNotification('리포트 발송 중 오류가 발생했습니다.');
     }
   };
 
-  const handleSaveEmail = () => {
+  const handleSaveSettings = () => {
     onUpdateEmail(recipientEmail);
-    setNotification(`수신 이메일이 "${recipientEmail}" 로 저장되었습니다.`);
-    setTimeout(() => setNotification(null), 4000);
+    onUpdateScheduleTime(scheduledTime);
+    setNotification(`[설정 저장 완료] 수신처: "${recipientEmail}", 정기 발송 시각: "${scheduledTime}"으로 저장되었습니다.`);
+    setTimeout(() => setNotification(null), 5000);
   };
 
   const selectedLog = emailLogs.find((l) => l.id === activeLogId) || emailLogs[0];
@@ -77,13 +81,13 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-slate-900">매일 10:00 데일리 리포트 발송 센터</h2>
+              <h2 className="text-lg font-bold text-slate-900">데일리 이메일 자동 리포트 발송 센터</h2>
               <span className="bg-blue-50 text-blue-700 text-xs px-2.5 py-0.5 rounded-full font-bold border border-blue-200 flex items-center gap-1">
-                <Clock className="w-3 h-3" /> 매일 10시 정각 자동 예약
+                <Clock className="w-3 h-3" /> 매일 {scheduledTime} 정각 자동 예약
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              아동 기기에서 수집된 24시간 전체 앱 사용 내역을 매일 오전 10시에 학부모 이메일로 자동 전송합니다.
+              아동 기기에서 수집된 하루 전체 앱 사용 내역을 지정하신 매일 정기 발송 시각(기본: 오후 10시)에 학부모 이메일로 무인 자동 전송합니다.
             </p>
           </div>
 
@@ -101,58 +105,79 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                <span>10시 리포트 발송 테스트 실행</span>
+                <span>리포트 즉시 발송 테스트 실행</span>
               </>
             )}
           </button>
         </div>
 
-        {/* Email Recipient Setup */}
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+        {/* Email Recipient & Time Configuration */}
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
               학부모 수신 이메일 주소
             </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                <input
-                  id="input-recipient-email"
-                  type="email"
-                  value={recipientEmail}
-                  onChange={(e) => setRecipientEmail(e.target.value)}
-                  placeholder="예: parent@gmail.com"
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-blue-500 outline-none"
-                />
-              </div>
-              <button
-                id="btn-save-email"
-                onClick={handleSaveEmail}
-                className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-lg transition"
-              >
-                저장
-              </button>
+            <div className="relative">
+              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <input
+                id="input-recipient-email"
+                type="email"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                placeholder="예: parent@gmail.com"
+                className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-blue-500 outline-none"
+              />
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
               * 기기별로 각각 다른 이메일 수신처를 지정하거나 동일 수신처로 일괄 관리할 수 있습니다.
             </p>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-slate-800">정기 발송 시각 및 동작 원리</div>
-              <div className="text-xs text-slate-600 mt-0.5">
-                매일 <span className="font-bold text-blue-600">오전 10:00 (KST)</span> WorkManager 및 AlarmManager
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+              <span>정기 리포트 발송 시각</span>
+              <span className="text-[11px] text-blue-600 font-semibold">기본값: 오후 10시</span>
+            </label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <input
+                  id="input-scheduled-time"
+                  type="time"
+                  value={scheduledTime}
+                  onChange={(e) => setScheduledTime(e.target.value)}
+                  className="w-full pl-9 pr-2 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-bold focus:bg-white focus:border-blue-500 outline-none"
+                />
               </div>
-              <div className="text-[11px] text-slate-400 mt-1">
-                기기가 절전(Doze) 모드이거나 화면이 꺼져 있어도 AlarmManager.setExactAndAllowWhileIdle로 정확히 정각 발송
-              </div>
+              <button
+                id="btn-save-settings"
+                onClick={handleSaveSettings}
+                className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-lg transition shrink-0 cursor-pointer shadow-sm"
+              >
+                설정 저장
+              </button>
             </div>
-            <div className="text-right">
-              <span className="inline-block bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-1 rounded-full">
-                정상 가동 중
-              </span>
+            <p className="text-[11px] text-slate-400 mt-1">
+              * 기기 Doze 절전 상태에서도 지정 시각 정각에 발송됩니다.
+            </p>
+          </div>
+        </div>
+
+        {/* Operation Principle Information Box */}
+        <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-600" />
+              <span>정기 발송 동작 상태: 매일 <span className="text-blue-700 font-black">{scheduledTime} (KST)</span> 무인 자동 발송 예약됨</span>
             </div>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              기기가 절전(Doze) 모드이거나 화면이 꺼져 있어도 <code className="bg-slate-200 px-1 rounded font-mono text-slate-700">AlarmManager.setExactAndAllowWhileIdle</code>로 정확히 발송됩니다.
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" /> 스케줄러 가동 중
+            </span>
           </div>
         </div>
       </div>
@@ -180,7 +205,7 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
                   <span className="bg-blue-500 text-white font-bold px-2 py-0.5 rounded text-[10px]">
                     timesnooper 데일리 리포트
                   </span>
-                  <span className="text-slate-400">매일 오전 10:00 자동 발송</span>
+                  <span className="text-slate-400">매일 오후 {scheduledTime} 자동 발송</span>
                 </div>
                 <h4 className="text-lg font-extrabold text-white mt-1">
                   {device.childName} 기기 일일 사용 리포트

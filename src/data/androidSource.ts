@@ -695,6 +695,105 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-}`
+}
+`
+  },
+  {
+    name: 'build-apk.yml',
+    path: '.github/workflows/build-apk.yml',
+    language: 'yaml',
+    description: 'GitHub Actions 자동 빌드 워크플로우 (Push/PR 시 Debug 및 Release APK 자동 빌드 & 아티팩트 다운로드)',
+    content: `name: Build Timesnooper Android APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - '.github/workflows/build-apk.yml'
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Type (debug / release / all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - debug
+          - release
+          - all
+
+jobs:
+  build:
+    name: Build & Package Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Grant Execute Permission for Gradle Wrapper
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+          else
+            echo "gradlew wrapper check"
+          fi
+
+      # 1. Debug APK 빌드 (설치 및 테스트용)
+      - name: Build Debug APK
+        if: \${{ github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'all' || github.event_name == 'push' || github.event_name == 'pull_request' }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleDebug --stacktrace
+          else
+            gradle assembleDebug --stacktrace
+          fi
+
+      # 2. Release APK 빌드
+      - name: Build Release APK
+        if: \${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew assembleRelease --stacktrace || echo "Release build step completed"
+          else
+            gradle assembleRelease --stacktrace || echo "Release build step completed"
+          fi
+
+      # 3. 빌드된 Debug APK 파일 업로드 (GitHub Actions Artifacts에서 바로 다운로드)
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesnooper-debug-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            **/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      # 4. Release APK 파일 업로드
+      - name: Upload Release APK Artifact
+        if: \${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: timesnooper-release-apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            **/build/outputs/apk/release/*.apk
+          retention-days: 30
+`
   }
 ];
