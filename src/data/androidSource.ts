@@ -129,6 +129,21 @@ include(":app")
 `
   },
   {
+    name: 'gradle.properties',
+    path: 'gradle.properties',
+    language: 'properties',
+    description: 'Gradle 빌드 환경설정 및 AndroidX 활성화 (android.useAndroidX=true, android.enableJetifier=true)',
+    content: `# Project-wide Gradle settings.
+org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+org.gradle.parallel=true
+
+# AndroidX package structure enabled
+android.useAndroidX=true
+android.enableJetifier=true
+kotlin.code.style=official
+`
+  },
+  {
     name: 'root-build.gradle.kts',
     path: 'build.gradle.kts',
     language: 'gradle',

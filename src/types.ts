@@ -71,7 +71,7 @@ export interface EmailReportLog {
 export interface AndroidProjectFile {
   name: string;
   path: string;
-  language: 'kotlin' | 'xml' | 'gradle' | 'shell' | 'yaml' | 'json' | 'markdown' | 'toml';
+  language: 'kotlin' | 'xml' | 'gradle' | 'shell' | 'yaml' | 'json' | 'markdown' | 'toml' | 'properties';
   description: string;
   content: string;
 }
