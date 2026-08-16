@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
+import nodemailer from 'nodemailer';
 import { INITIAL_DEVICES, INITIAL_EMAIL_LOGS } from './src/data/initialDevices';
 import { ANDROID_SOURCE_FILES } from './src/data/androidSource';
 import { ChildDevice, DeviceTelemetry, EmailReportLog } from './src/types';
@@ -22,6 +23,63 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 // In-memory runtime state
 let devices: ChildDevice[] = [...INITIAL_DEVICES];
 let reportLogs: EmailReportLog[] = [...INITIAL_EMAIL_LOGS];
+
+// Real SMTP Dispatcher
+interface SmtpDispatchResult {
+  sentToSmtp: boolean;
+  messageId?: string;
+  error?: string;
+  statusText: string;
+}
+
+async function dispatchRealEmail(to: string, subject: string, html: string): Promise<SmtpDispatchResult> {
+  const host = process.env.SMTP_HOST || (process.env.SMTP_USER?.includes('@gmail.com') ? 'smtp.gmail.com' : '');
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const from = process.env.SMTP_FROM || user || `Timesnooper 데일리 리포트 <${user || 'noreply@timesnooper.local'}>`;
+
+  if (!user || !pass) {
+    console.log(`[SMTP Not Configured] To: ${to}, Subject: ${subject}`);
+    return {
+      sentToSmtp: false,
+      statusText: 'SMTP 미설정 (대시보드 실시간 프리뷰 보관)'
+    };
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: host || 'smtp.gmail.com',
+      port,
+      secure: port === 465,
+      auth: {
+        user,
+        pass,
+      },
+    });
+
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject,
+      html,
+    });
+
+    console.log(`[SMTP Success] Sent to ${to}, ID: ${info.messageId}`);
+    return {
+      sentToSmtp: true,
+      messageId: info.messageId,
+      statusText: `실제 메일함 (${to}) 발송 완료`
+    };
+  } catch (err: any) {
+    console.error('[SMTP Transport Error]:', err);
+    return {
+      sentToSmtp: false,
+      error: err.message,
+      statusText: `SMTP 발송 실패 (${err.message})`
+    };
+  }
+}
 
 // Gemini AI client initialization
 function getGeminiClient(): GoogleGenAI | null {
@@ -323,6 +381,10 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
     }
 
     const htmlContent = generateReportEmailHtml(targetDevice, telemetry, aiAdvice);
+    const subject = `[Timesnooper] ${targetDevice.childName}의 일일 스크린타임 & 앱 사용 보고서 (${telemetry.date})`;
+
+    // Attempt real SMTP email dispatch
+    const smtpResult = await dispatchRealEmail(emailToUse, subject, htmlContent);
 
     const newLog: EmailReportLog = {
       id: `log-${Date.now()}`,
@@ -337,15 +399,21 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
       status: 'DELIVERED',
       deliveryMode: mode === 'MANUAL_TEST' ? 'MANUAL_TEST' : 'AUTOMATIC_SCHEDULED',
       htmlPreview: htmlContent,
-      aiAdvice
+      aiAdvice,
+      isRealEmailDelivered: smtpResult.sentToSmtp,
+      smtpDeliveryStatus: smtpResult.statusText,
+      smtpMessageId: smtpResult.messageId
     };
 
     reportLogs.unshift(newLog);
 
     return res.json({
       success: true,
-      message: `[데일리 리포트] ${emailToUse} (부모님) 이메일로 성공적으로 리포트가 발송되었습니다.`,
-      log: newLog
+      message: smtpResult.sentToSmtp
+        ? `[실제 메일 발송 성공] ${emailToUse} (수신함)으로 일일 보고서가 정상 전송되었습니다!`
+        : `[대시보드 리포트 생성 완료] ${emailToUse} 대상 리포트가 대시보드 및 실시간 프리뷰에 등록되었습니다. (SMTP 실제 발송 연동 안내: 설정 > Secrets에 SMTP_USER/SMTP_PASS 입력 시 실제 메일함으로 즉시 발송됩니다)`,
+      log: newLog,
+      smtpResult
     });
   } catch (error: any) {
     console.error('Error handling /api/send-report:', error);
@@ -447,6 +515,10 @@ app.post('/api/reports/daily', async (req: Request, res: Response) => {
     }
 
     const htmlContent = generateReportEmailHtml(existingDevice, existingDevice.todayTelemetry, aiAdvice);
+    const subject = `[Timesnooper 자동발송] ${existingDevice.childName}의 일일 미디어 사용 리포트 (${reportDate || new Date().toISOString().split('T')[0]})`;
+
+    // Attempt real SMTP dispatch
+    const smtpResult = await dispatchRealEmail(targetEmail, subject, htmlContent);
 
     const newLog: EmailReportLog = {
       id: `log-${Date.now()}`,
@@ -461,15 +533,21 @@ app.post('/api/reports/daily', async (req: Request, res: Response) => {
       status: 'DELIVERED',
       deliveryMode: 'AUTOMATIC_SCHEDULED',
       htmlPreview: htmlContent,
-      aiAdvice
+      aiAdvice,
+      isRealEmailDelivered: smtpResult.sentToSmtp,
+      smtpDeliveryStatus: smtpResult.statusText,
+      smtpMessageId: smtpResult.messageId
     };
 
     reportLogs.unshift(newLog);
 
     return res.json({
       success: true,
-      message: `[APK 리포트 완료] 수신처: ${targetEmail} 로 리포트가 성공적으로 저장 및 발송되었습니다.`,
-      log: newLog
+      message: smtpResult.sentToSmtp 
+        ? `[APK 실제 메일 발송 완료] ${targetEmail} 로 메일이 전송되었습니다.`
+        : `[APK 리포트 완료] 수신처: ${targetEmail} 로 리포트가 성공적으로 저장되었습니다.`,
+      log: newLog,
+      smtpResult
     });
   } catch (error: any) {
     console.error('Error in /api/reports/daily:', error);
@@ -478,6 +556,22 @@ app.post('/api/reports/daily', async (req: Request, res: Response) => {
       message: error?.message || 'APK 리포트 처리 중 서버 오류가 발생했습니다.'
     });
   }
+});
+
+// 5-2. GET /api/smtp-status - Check SMTP configuration status
+app.get('/api/smtp-status', (req: Request, res: Response) => {
+  const isConfigured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+  const user = process.env.SMTP_USER 
+    ? `${process.env.SMTP_USER.slice(0, 3)}***@${process.env.SMTP_USER.split('@')[1] || ''}` 
+    : null;
+  res.json({
+    configured: isConfigured,
+    smtpUser: user,
+    smtpHost: process.env.SMTP_HOST || (isConfigured ? 'smtp.gmail.com' : null),
+    message: isConfigured 
+      ? `SMTP 실제 메일 전송이 활성화되어 있습니다 (${user}).`
+      : `현재 SMTP(Gmail 앱 비밀번호 등)가 미설정되어 있어 대시보드 내 실시간 프리뷰로 확인 가능합니다. 실제 메일함 수신을 원하시면 환경변수에 SMTP_USER / SMTP_PASS를 설정해주세요.`
+  });
 });
 
 // 6. GET /api/reports/history - View report logs

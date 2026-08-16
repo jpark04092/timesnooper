@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChildDevice, EmailReportLog } from '../types';
 import {
   Mail,
@@ -12,7 +12,11 @@ import {
   Calendar,
   History,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Key,
+  Info,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface DailyEmailReporterProps {
@@ -36,6 +40,15 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
   const [scheduledTime, setScheduledTime] = useState(device.scheduledReportTime || '22:00');
   const [activeLogId, setActiveLogId] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [showSmtpGuide, setShowSmtpGuide] = useState<boolean>(false);
+  const [smtpStatus, setSmtpStatus] = useState<{ configured: boolean; smtpUser: string | null; message: string } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/smtp-status')
+      .then((res) => res.json())
+      .then((data) => setSmtpStatus(data))
+      .catch(() => setSmtpStatus({ configured: false, smtpUser: null, message: 'SMTP 상태 확인 불가' }));
+  }, [emailLogs]);
 
   const telemetry = device.todayTelemetry;
   const totalHours = Math.floor(telemetry.screenTimeMinutes / 60);
@@ -45,10 +58,10 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
   const handleSendTest = async () => {
     try {
       await onSendReport(recipientEmail, 'MANUAL_TEST');
-      setNotification(`[데일리 리포트 즉시 발송 완료] 수신처: ${recipientEmail} 로 일일 보고서가 성공적으로 발송되었습니다.`);
+      setNotification(`[데일리 리포트 처리 완료] 수신처: ${recipientEmail} 로 리포트가 생성되었습니다.`);
       setTimeout(() => setNotification(null), 6000);
     } catch (e: any) {
-      setNotification(`[발송 완료] ${recipientEmail}로 데일리 리포트가 전송되었습니다.`);
+      setNotification(`[알림] 리포트 처리가 완료되었습니다.`);
       setTimeout(() => setNotification(null), 6000);
     }
   };
@@ -76,6 +89,80 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
           </button>
         </div>
       )}
+
+      {/* SMTP Real Mailbox Connection Notice & Guide */}
+      <div className={`border rounded-2xl p-5 transition-all ${
+        smtpStatus?.configured 
+          ? 'bg-emerald-50/70 border-emerald-200' 
+          : 'bg-amber-50/70 border-amber-200'
+      }`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${
+              smtpStatus?.configured ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+            }`}>
+              <Mail className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  {smtpStatus?.configured ? '실제 이메일 수신함 전송 활성화됨' : '실제 이메일 수신함(Gmail 등) 전송 안내'}
+                </h3>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  smtpStatus?.configured 
+                    ? 'bg-emerald-200 text-emerald-900' 
+                    : 'bg-amber-200 text-amber-900'
+                }`}>
+                  {smtpStatus?.configured ? 'SMTP 연동 완료' : '대시보드 실시간 프리뷰 모드'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                {smtpStatus?.configured
+                  ? `지정하신 ${smtpStatus.smtpUser} 발송 서버를 통해 ${recipientEmail} 실제 메일함으로 즉시 배달됩니다.`
+                  : `현재는 대시보드 내 실시간 HTML 렌더링 프리뷰와 로그로 정상 보관됩니다. 실제 ${recipientEmail} 수신함으로 메일을 직접 받아보시려면 SMTP 계정(Gmail 앱 비밀번호)을 등록해주세요.`}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowSmtpGuide(!showSmtpGuide)}
+            className="flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white/80 border border-slate-200 px-3 py-2 rounded-xl shrink-0 transition"
+          >
+            <Key className="w-3.5 h-3.5 text-blue-600" />
+            <span>{showSmtpGuide ? '안내 접기' : '실제 메일 연동 방법'}</span>
+            {showSmtpGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+
+        {/* Expandable Setup Instructions */}
+        {showSmtpGuide && (
+          <div className="mt-4 pt-4 border-t border-slate-200/80 text-xs text-slate-700 space-y-3 bg-white/60 p-4 rounded-xl">
+            <div className="font-bold text-slate-900 flex items-center gap-1.5">
+              <Info className="w-4 h-4 text-blue-600" />
+              <span>Gmail 앱 비밀번호를 이용해 실제 메일함으로 수신하는 3단계 가이드</span>
+            </div>
+            <ol className="list-decimal list-inside space-y-1.5 leading-relaxed text-slate-600">
+              <li>
+                <strong className="text-slate-800">Google 계정 보안 설정</strong>: <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="text-blue-600 underline font-medium">Google 계정 관리</a> &gt; [보안] &gt; [2단계 인증]이 켜져 있는지 확인합니다.
+              </li>
+              <li>
+                <strong className="text-slate-800">앱 비밀번호 생성</strong>: 2단계 인증 페이지 하단의 <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-blue-600 underline font-medium">[앱 비밀번호]</a>에서 앱 이름(예: Timesnooper)을 입력 후 생성된 <strong>16자리 비밀번호</strong>를 복사합니다.
+              </li>
+              <li>
+                <strong className="text-slate-800">AI Studio 환경변수 등록</strong>: 상단 <strong>Settings &gt; Secrets</strong> 메뉴에서 다음을 등록합니다:
+                <div className="mt-1 bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[11px] space-y-1">
+                  <div>SMTP_USER = &quot;{recipientEmail}&quot;</div>
+                  <div>SMTP_PASS = &quot;생성된16자리앱비밀번호&quot;</div>
+                  <div className="text-slate-400"># (선택) SMTP_HOST=&quot;smtp.gmail.com&quot;, SMTP_PORT=&quot;587&quot;</div>
+                </div>
+              </li>
+            </ol>
+            <p className="text-[11px] text-slate-500">
+              * 설정 후 테스트 메일 즉시 발송을 누르시면 실제 받은편지함(또는 스팸함)으로 HTML 리포트가 즉각 도착합니다!
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Main Configuration Card */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
@@ -310,14 +397,25 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
               >
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="font-bold text-slate-900">{log.childName}</span>
-                  <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> 정상 발송
+                  <span className={`font-bold px-2 py-0.5 rounded text-[10px] flex items-center gap-1 ${
+                    log.isRealEmailDelivered
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    <CheckCircle2 className="w-3 h-3" />
+                    {log.isRealEmailDelivered ? '메일함 배달 완료' : '대시보드 보관'}
                   </span>
                 </div>
 
                 <div className="text-xs text-slate-600 mb-1">
                   수신: <span className="font-medium text-slate-800">{log.recipientEmail}</span>
                 </div>
+
+                {log.smtpDeliveryStatus && (
+                  <div className="text-[10px] text-slate-500 mb-1 font-mono">
+                    {log.smtpDeliveryStatus}
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
                   <span>총 {log.totalScreenTimeMinutes}분 사용</span>

@@ -66,6 +66,9 @@ export interface EmailReportLog {
   deliveryMode: 'AUTOMATIC_SCHEDULED' | 'AUTOMATIC_10AM' | 'MANUAL_TEST';
   htmlPreview: string;
   aiAdvice?: string;
+  isRealEmailDelivered?: boolean;
+  smtpDeliveryStatus?: string;
+  smtpMessageId?: string;
 }
 
 export interface AndroidProjectFile {

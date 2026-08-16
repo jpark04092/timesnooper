@@ -93,8 +93,8 @@ export default function App() {
         if (data.log) {
           setEmailLogs((prev) => [data.log, ...prev]);
         }
-        setGlobalBanner(`[데일리 리포트 즉시 발송 완료] ${targetEmail} (학부모 이메일)로 일일 보고서가 성공적으로 발송되었습니다.`);
-        setTimeout(() => setGlobalBanner(null), 6000);
+        setGlobalBanner(data.message || `[데일리 리포트 발송 완료] ${targetEmail} 로 일일 보고서가 발송되었습니다.`);
+        setTimeout(() => setGlobalBanner(null), 7000);
       } else {
         // Fallback local log update
         const newLog: EmailReportLog = {
@@ -111,10 +111,12 @@ export default function App() {
           deliveryMode: mode,
           htmlPreview: '',
           aiAdvice: '유튜브 및 게임 사용시간이 일일 목표 한도 내에서 균형 있게 유지되고 있습니다. 취침 1시간 전 기기 보관 규칙을 함께 유지해보세요.',
+          isRealEmailDelivered: false,
+          smtpDeliveryStatus: '대시보드 실시간 프리뷰 보관'
         };
         setEmailLogs((prev) => [newLog, ...prev]);
-        setGlobalBanner(`[데일리 리포트 즉시 발송 완료] ${targetEmail} (학부모 이메일)로 일일 보고서가 발송되었습니다.`);
-        setTimeout(() => setGlobalBanner(null), 6000);
+        setGlobalBanner(`[대시보드 리포트 등록 완료] 수신처: ${targetEmail} (실제 메일함 수신을 위해 Secrets에 SMTP_USER/SMTP_PASS를 등록할 수 있습니다).`);
+        setTimeout(() => setGlobalBanner(null), 7000);
       }
     } catch (e: any) {
       console.error('Report error:', e);
@@ -132,10 +134,12 @@ export default function App() {
         deliveryMode: mode,
         htmlPreview: '',
         aiAdvice: 'EBS 인강 및 유익한 콘텐츠 사용시간이 잘 유지되고 있습니다.',
+        isRealEmailDelivered: false,
+        smtpDeliveryStatus: '대시보드 실시간 프리뷰 보관'
       };
       setEmailLogs((prev) => [newLog, ...prev]);
-      setGlobalBanner(`[데일리 리포트 즉시 발송 완료] ${targetEmail} (학부모 이메일)로 일일 보고서가 발송되었습니다.`);
-      setTimeout(() => setGlobalBanner(null), 6000);
+      setGlobalBanner(`[리포트 등록 완료] ${targetEmail} 일일 보고서가 대시보드에 생성되었습니다.`);
+      setTimeout(() => setGlobalBanner(null), 7000);
     } finally {
       setIsSendingReport(false);
     }
