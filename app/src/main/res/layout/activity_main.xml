@@ -20,7 +20,7 @@
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#0F172A"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="16dp"
             android:layout_marginBottom="4dp" />
 
         <TextView
@@ -30,47 +30,9 @@
             android:textSize="12sp"
             android:textColor="#64748B"
             android:gravity="center"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="20dp" />
 
-        <!-- Card 0: Device Model & 7-Tap Stealth Unlock Info -->
-        <LinearLayout
-            android:id="@+id/cardDeviceModel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#EFF6FF"
-            android:padding="14dp"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📱 기기 모델 및 7회 연타 스텔스 해제"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#1E40AF"
-                android:layout_marginBottom="6dp" />
-
-            <TextView
-                android:id="@+id/tvDeviceModelInfo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="현재 기기 모델: 로딩 중..."
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="4dp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="💡 [스텔스 초간편 해제 방법]\n스텔스 상태에서 기기 [설정] > [태블릿/휴대전화 정보] > [모델명]을 7회 연속 터치하면 스텔스가 즉시 해제되며 관리자 비밀번호(초기: 0000) 입력창이 열립니다."
-                android:textSize="11sp"
-                android:textColor="#3B82F6"
-                android:lineSpacingExtra="2dp" />
-        </LinearLayout>
-
-        <!-- Card 1: Admin Master PIN Configuration -->
+        <!-- Card: Parent Email & Device Settings -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -82,102 +44,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🔐 관리자 마스터 비밀번호 (Admin PIN)"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="#1E293B"
-                android:layout_marginBottom="6dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="기기 화면 잠금(패턴/PIN)과 다른 학부모 전용 4~8자리 비밀번호 (초기값: 0000)"
-                android:textSize="11sp"
-                android:textColor="#64748B"
-                android:layout_marginBottom="10dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="현재 관리자 비밀번호:"
-                android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etCurrentAdminPin"
-                android:layout_width="match_parent"
-                android:layout_height="46dp"
-                android:hint="현재 비밀번호 입력 (초기: 0000)"
-                android:inputType="numberPassword"
-                android:textSize="14sp"
-                android:padding="10dp"
-                android:background="#F1F5F9"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="새 관리자 비밀번호 (4~8자리 숫자):"
-                android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etNewAdminPin"
-                android:layout_width="match_parent"
-                android:layout_height="46dp"
-                android:hint="새 비밀번호 입력 (예: 1234)"
-                android:inputType="numberPassword"
-                android:textSize="14sp"
-                android:padding="10dp"
-                android:background="#F1F5F9"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="새 관리자 비밀번호 확인:"
-                android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etConfirmAdminPin"
-                android:layout_width="match_parent"
-                android:layout_height="46dp"
-                android:hint="새 비밀번호 재입력"
-                android:inputType="numberPassword"
-                android:textSize="14sp"
-                android:padding="10dp"
-                android:background="#F1F5F9"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="10dp" />
-
-            <Button
-                android:id="@+id/btnChangeAdminPin"
-                android:layout_width="match_parent"
-                android:layout_height="46dp"
-                android:text="관리자 비밀번호 변경 저장"
-                android:textSize="12sp"
-                android:backgroundTint="#475569" />
-        </LinearLayout>
-
-        <!-- Card 2: Parent Email & Device Settings -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:padding="16dp"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📧 학부모 수신 이메일 및 발송 설정"
+                android:text="📧 학부모 수신 이메일 설정"
                 android:textSize="15sp"
                 android:textStyle="bold"
                 android:textColor="#1E293B"
@@ -371,14 +238,6 @@
             android:textStyle="bold"
             android:textColor="#334155"
             android:layout_marginBottom="10dp" />
-
-        <Button
-            android:id="@+id/btnAccessibilityPermission"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="0. 🌟 [설정 > 모델 7회 연타] 스텔스 해제 접근성 허용"
-            android:backgroundTint="#2563EB"
-            android:layout_marginBottom="8dp" />
 
         <Button
             android:id="@+id/btnUsagePermission"

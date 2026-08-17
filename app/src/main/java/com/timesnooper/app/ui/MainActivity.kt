@@ -14,25 +14,26 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.app.TimePickerDialog
-import android.text.InputType
-import android.view.View
-import android.widget.*
-import androidx.appcompat.app.AlertDialog
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.timesnooper.app.R
 import com.timesnooper.app.data.AppStatEntry
 import com.timesnooper.app.data.ReportPayload
-import com.timesnooper.app.network.DirectEmailSender
+import com.timesnooper.app.network.TimesnooperApiClient
 import com.timesnooper.app.receiver.DailyReportAlarmReceiver
 import com.timesnooper.app.receiver.TimesnooperAdminReceiver
-import com.timesnooper.app.service.TimesnooperAccessibilityService
 import com.timesnooper.app.service.TimesnooperMonitorService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
+
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 
 class MainActivity : AppCompatActivity() {
 
@@ -44,22 +45,10 @@ class MainActivity : AppCompatActivity() {
         const val KEY_REPORT_TIME = "report_time"
         const val KEY_REPORT_HOUR = "report_hour"
         const val KEY_REPORT_MINUTE = "report_minute"
-        const val KEY_ADMIN_PIN = "admin_master_pin"
-        const val DEFAULT_ADMIN_PIN = "0000"
         const val LAUNCHER_ALIAS_CLASS = "com.timesnooper.app.ui.LauncherAlias"
-
-        const val EXTRA_FROM_MODEL_TAP = "extra_from_model_tap"
-        const val EXTRA_PROMPT_PIN = "extra_prompt_pin"
     }
 
     private lateinit var prefs: SharedPreferences
-    private lateinit var tvDeviceModelInfo: TextView
-    private lateinit var cardDeviceModel: View
-    private lateinit var etCurrentAdminPin: EditText
-    private lateinit var etNewAdminPin: EditText
-    private lateinit var etConfirmAdminPin: EditText
-    private lateinit var btnChangeAdminPin: Button
-
     private lateinit var etParentEmail: EditText
     private lateinit var etChildName: EditText
     private lateinit var etSenderEmail: EditText
@@ -67,23 +56,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etReportTime: EditText
     private lateinit var tvStatusLog: TextView
 
-    private var isAuthenticated = false
-    private var modelTapCountInApp = 0
-    private var lastModelTapTime = 0L
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         prefs = getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
-
-        // View bindings
-        tvDeviceModelInfo = findViewById(R.id.tvDeviceModelInfo)
-        cardDeviceModel = findViewById(R.id.cardDeviceModel)
-        etCurrentAdminPin = findViewById(R.id.etCurrentAdminPin)
-        etNewAdminPin = findViewById(R.id.etNewAdminPin)
-        etConfirmAdminPin = findViewById(R.id.etConfirmAdminPin)
-        btnChangeAdminPin = findViewById(R.id.btnChangeAdminPin)
 
         etParentEmail = findViewById(R.id.etParentEmail)
         etChildName = findViewById(R.id.etChildName)
@@ -92,19 +69,9 @@ class MainActivity : AppCompatActivity() {
         etReportTime = findViewById(R.id.etReportTime)
         tvStatusLog = findViewById(R.id.tvStatusLog)
 
-        // 1. 기기 모델명 표시 및 7회 연타 시뮬레이터
-        val manufacturer = Build.MANUFACTURER?.replaceFirstChar { it.uppercase() } ?: "Android"
-        val model = Build.MODEL ?: "Device"
-        val androidVer = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        tvDeviceModelInfo.text = "현재 기기 모델: $manufacturer $model ($androidVer)"
-
-        cardDeviceModel.setOnClickListener {
-            handleInAppModelTap()
-        }
-
-        // 2. 저장된 데이터 불러오기
+        // 저장된 학부모 이메일, 발신 계정 및 리포트 발송 시각 불러오기
         val savedParentEmail = prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com")
-        val savedChildName = prefs.getString(KEY_CHILD_NAME, "자녀 ($model)")
+        val savedChildName = prefs.getString(KEY_CHILD_NAME, "자녀 (갤럭시 탭)")
         val savedSenderEmail = prefs.getString(KEY_SENDER_EMAIL, "jpark04092@gmail.com")
         val savedPassword = prefs.getString(KEY_SENDER_APP_PASSWORD, "")
         val savedReportTime = prefs.getString(KEY_REPORT_TIME, "22:00") ?: "22:00"
@@ -115,12 +82,7 @@ class MainActivity : AppCompatActivity() {
         etSenderAppPassword.setText(savedPassword)
         etReportTime.setText(savedReportTime)
 
-        // 3. 관리자 마스터 비밀번호 변경 버튼 리스너
-        btnChangeAdminPin.setOnClickListener {
-            handleChangeAdminPin()
-        }
-
-        // 4. 발송 시각 선택 다이얼로그 바인딩
+        // 시각 선택 다이얼로그 바인딩
         val timePickerAction = {
             val currentTime = etReportTime.text.toString().trim()
             var initHour = 22
@@ -142,7 +104,7 @@ class MainActivity : AppCompatActivity() {
                 },
                 initHour,
                 initMinute,
-                true
+                true // 24시간 형식
             ).show()
         }
 
@@ -154,32 +116,16 @@ class MainActivity : AppCompatActivity() {
             timePickerAction()
         }
 
-        // 5. 이메일 및 시각 설정 저장
+        // 이메일 및 시각 설정 저장 버튼
         findViewById<Button>(R.id.btnSaveSettings)?.setOnClickListener {
             saveEmailSettings()
         }
 
-        // 6. 테스트 메일 즉시 발송
+        // 테스트 메일 즉시 발송 버튼
         findViewById<Button>(R.id.btnTestEmail)?.setOnClickListener {
             sendLiveTestReport()
         }
 
-        // 7. 접근성 서비스 허용 (설정 > 모델 7회 연타 스텔스 해제)
-        findViewById<Button>(R.id.btnAccessibilityPermission)?.setOnClickListener {
-            try {
-                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                startActivity(intent)
-                Toast.makeText(
-                    this,
-                    "[설치된 서비스/다운로드한 앱] 에서 'Timesnooper 모델명 7회 연타' 서비스를 '사용'으로 켜주세요.",
-                    Toast.LENGTH_LONG
-                ).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "접근성 설정 열기 실패: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        // 8. 사용 정보 접근 권한
         findViewById<Button>(R.id.btnUsagePermission)?.setOnClickListener {
             try {
                 val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
@@ -190,164 +136,39 @@ class MainActivity : AppCompatActivity() {
                 try {
                     startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                 } catch (e2: Exception) {
-                    Toast.makeText(this, "설정 > 사용 정보 접근에서 Timesnooper를 허용해주세요.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "설정 > 보안 및 개인정보 보호 > 사용 정보 접근에서 Timesnooper를 허용해주세요.", Toast.LENGTH_LONG).show()
                 }
             }
             Toast.makeText(this, "목록에서 'Timesnooper'를 찾아 '허용'을 켜주세요.", Toast.LENGTH_LONG).show()
         }
 
-        // 9. 기기 관리자 활성화
         findViewById<Button>(R.id.btnDeviceAdmin)?.setOnClickListener {
             requestDeviceAdminPermission()
         }
 
-        // 10. 배터리 절전 예외
         findViewById<Button>(R.id.btnBatteryExemption)?.setOnClickListener {
             requestBatteryOptimizationExemption()
         }
 
-        // 11. 서비스 시작
         findViewById<Button>(R.id.btnStartService)?.setOnClickListener {
             startMonitorService()
         }
 
-        // 12. 스텔스 모드
         findViewById<Button>(R.id.btnStealthMode)?.setOnClickListener {
             enableStealthMode()
         }
 
-        // 13. 스텔스 해제
         findViewById<Button>(R.id.btnUnhideIcon)?.setOnClickListener {
             disableStealthMode()
         }
 
-        // 초기 관리자 PIN 인증 체크 (자녀가 설정창에 무단 접근하는 것을 방지)
-        val fromModelTap = intent?.getBooleanExtra(EXTRA_FROM_MODEL_TAP, false) ?: false
-        val promptPin = intent?.getBooleanExtra(EXTRA_PROMPT_PIN, false) ?: false
-
-        if (fromModelTap || promptPin || !isAuthenticated) {
-            promptAdminPinVerification()
-        }
-
-        // 사용 정보 권한 체크
+        // 1. 필수 사용정보 접근 권한 체크 (UsageStats)
         if (!hasUsageStatsPermission()) {
             tvStatusLog.text = "⚠️ 주의: '사용 정보 접근 권한'이 허용되지 않았습니다. 1번 버튼을 눌러 허용해주세요."
+            Toast.makeText(this, "아이 앱 사용시간 추적을 위해 '사용 정보 접근' 권한을 허용해주세요.", Toast.LENGTH_LONG).show()
         } else {
-            tvStatusLog.text = "🟢 권한 승인됨: 언제든 [Gmail로 즉시 발송]을 눌러 테스트할 수 있습니다."
+            tvStatusLog.text = "🟢 권한 승인됨: 언제든 [테스트 메일 발송] 버튼을 눌러 발송을 테스트하세요."
             startMonitorService()
-        }
-    }
-
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        val fromModelTap = intent?.getBooleanExtra(EXTRA_FROM_MODEL_TAP, false) ?: false
-        val promptPin = intent?.getBooleanExtra(EXTRA_PROMPT_PIN, false) ?: false
-        if (fromModelTap || promptPin) {
-            promptAdminPinVerification()
-        }
-    }
-
-    /**
-     * 관리자 PIN 인증 다이얼로그 (초기값: 0000)
-     * 자녀의 화면 잠금 PIN과 분리된 학부모 전용 마스터 비밀번호로 설정 화면을 보호합니다.
-     */
-    private fun promptAdminPinVerification() {
-        val savedPin = prefs.getString(KEY_ADMIN_PIN, DEFAULT_ADMIN_PIN) ?: DEFAULT_ADMIN_PIN
-
-        val pinInput = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
-            hint = "관리자 4~8자리 PIN (초기: 0000)"
-            textSize = 16f
-            setPadding(48, 32, 48, 32)
-        }
-
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("🔐 Timesnooper 관리자 인증")
-            .setMessage("자녀의 무단 설정을 방지하기 위해 관리자 PIN을 입력하세요.\n(초기 비밀번호: $DEFAULT_ADMIN_PIN)")
-            .setView(pinInput)
-            .setCancelable(false)
-            .setPositiveButton("확인", null)
-            .setNegativeButton("닫기") { _, _ ->
-                if (!isAuthenticated) {
-                    finish()
-                }
-            }
-            .create()
-
-        dialog.setOnShowListener {
-            val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            button.setOnClickListener {
-                val input = pinInput.text.toString().trim()
-                if (input == savedPin) {
-                    isAuthenticated = true
-                    Toast.makeText(this, "✅ 관리자 인증 완료: 설정창이 활성화되었습니다.", Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
-                } else {
-                    Toast.makeText(this, "❌ 비밀번호가 일치하지 않습니다. (초기값: 0000)", Toast.LENGTH_SHORT).show()
-                    pinInput.setText("")
-                }
-            }
-        }
-
-        dialog.show()
-    }
-
-    /**
-     * 관리자 PIN 변경 처리
-     */
-    private fun handleChangeAdminPin() {
-        val currentPinInput = etCurrentAdminPin.text.toString().trim()
-        val newPinInput = etNewAdminPin.text.toString().trim()
-        val confirmPinInput = etConfirmAdminPin.text.toString().trim()
-        val savedPin = prefs.getString(KEY_ADMIN_PIN, DEFAULT_ADMIN_PIN) ?: DEFAULT_ADMIN_PIN
-
-        if (currentPinInput != savedPin) {
-            Toast.makeText(this, "현재 관리자 비밀번호가 일치하지 않습니다. (초기값: 0000)", Toast.LENGTH_SHORT).show()
-            etCurrentAdminPin.requestFocus()
-            return
-        }
-
-        if (newPinInput.length < 4 || newPinInput.length > 8) {
-            Toast.makeText(this, "새 관리자 비밀번호는 4~8자리 숫자로 설정해주세요.", Toast.LENGTH_SHORT).show()
-            etNewAdminPin.requestFocus()
-            return
-        }
-
-        if (newPinInput != confirmPinInput) {
-            Toast.makeText(this, "새 비밀번호와 확인 입력이 일치하지 않습니다.", Toast.LENGTH_SHORT).show()
-            etConfirmAdminPin.requestFocus()
-            return
-        }
-
-        prefs.edit().putString(KEY_ADMIN_PIN, newPinInput).apply()
-        etCurrentAdminPin.setText("")
-        etNewAdminPin.setText("")
-        etConfirmAdminPin.setText("")
-
-        Toast.makeText(this, "🎉 관리자 마스터 비밀번호가 성공적으로 변경되었습니다! (새 PIN: $newPinInput)", Toast.LENGTH_LONG).show()
-    }
-
-    /**
-     * 앱 내 모델 카드 7회 연타 시뮬레이터
-     */
-    private fun handleInAppModelTap() {
-        val now = System.currentTimeMillis()
-        if (now - lastModelTapTime > 2500L) {
-            modelTapCountInApp = 0
-        }
-        lastModelTapTime = now
-        modelTapCountInApp++
-
-        when (modelTapCountInApp) {
-            4 -> Toast.makeText(this, "스텔스 해제 연타 테스트: 3회 남음", Toast.LENGTH_SHORT).show()
-            5 -> Toast.makeText(this, "스텔스 해제 연타 테스트: 2회 남음", Toast.LENGTH_SHORT).show()
-            6 -> Toast.makeText(this, "스텔스 해제 연타 테스트: 1회 남음!", Toast.LENGTH_SHORT).show()
-            7 -> {
-                modelTapCountInApp = 0
-                Toast.makeText(this, "🔑 기기 설정 > 모델명 7회 연타와 동일하게 작동합니다. PIN을 확인하세요.", Toast.LENGTH_SHORT).show()
-                promptAdminPinVerification()
-            }
         }
     }
 
@@ -363,6 +184,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        // 시각 파싱 검증 (HH:mm 형식)
         var targetHour = 22
         var targetMinute = 0
         val timeParts = reportTimeStr.split(":")
@@ -394,6 +216,7 @@ class MainActivity : AppCompatActivity() {
             .putInt(KEY_REPORT_MINUTE, targetMinute)
             .apply()
 
+        // 변경된 발송 시각으로 알람 매니저 즉시 재설정
         DailyReportAlarmReceiver.scheduleDailyAlarm(this)
 
         val amPm = if (targetHour < 12) "오전" else "오후"
@@ -424,7 +247,8 @@ class MainActivity : AppCompatActivity() {
                 .setMessage("스마트폰에서 학부모님의 Gmail($parentEmail)로 직접 이메일을 발송하기 위해 발신용 16자리 앱 비밀번호가 필요합니다.\n\n" +
                         "1. myaccount.google.com/apppasswords 접속\n" +
                         "2. 앱 이름(Timesnooper) 입력 후 16자리 비밀번호 발급\n" +
-                        "3. 앱 비밀번호 칸에 입력 후 [설정 저장]을 누르세요.")
+                        "3. 앱 비밀번호 칸에 입력 후 [설정 저장]을 누르세요.\n\n" +
+                        "※ 1회 등록 시 매일 밤 자동 리포트도 스마트폰에서 Gmail로 직접 완벽하게 발송됩니다.")
                 .setPositiveButton("확인", null)
                 .show()
             tvStatusLog.text = "⚠️ 앱 비밀번호 미입력: 16자리 구글 앱 비밀번호를 입력하고 저장해주세요."
@@ -466,6 +290,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
+                // 앱 목록이 비어있는 경우 (방금 권한 승인하여 10초 이상 기록이 없는 경우) 현재 앱 샘플 추가
                 if (appStatList.isEmpty()) {
                     appStatList.add(
                         AppStatEntry(
@@ -491,7 +316,7 @@ class MainActivity : AppCompatActivity() {
                     apps = appStatList
                 )
 
-                val sendResult = DirectEmailSender.sendReportViaDirectSmtp(
+                val sendResult = com.timesnooper.app.network.DirectEmailSender.sendReportViaDirectSmtp(
                     payload = payload,
                     senderEmail = senderEmail,
                     senderAppPassword = appPassword
@@ -517,6 +342,11 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     tvStatusLog.text = "❌ [예외 발생] ${e.localizedMessage ?: e.message}"
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("발송 예외 발생")
+                        .setMessage("오류:\n${e.localizedMessage ?: e.message}")
+                        .setPositiveButton("확인", null)
+                        .show()
                 }
             }
         }
@@ -587,6 +417,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun enableStealthMode() {
         try {
+            // 1. 런처 별칭(LauncherAlias)만 비활성화하여 런처(홈/앱 서랍)에서 아이콘 완전 제거
             val aliasComponent = ComponentName(this, LAUNCHER_ALIAS_CLASS)
             packageManager.setComponentEnabledSetting(
                 aliasComponent,
@@ -594,6 +425,7 @@ class MainActivity : AppCompatActivity() {
                 PackageManager.DONT_KILL_APP
             )
 
+            // 2. MainActivity 자체는 활성화 상태 유지 (시크릿 다이얼 *#*#8463#*#* 이나 브로드캐스트로 언제든 정상 호출 가능)
             val mainComponent = ComponentName(this, MainActivity::class.java)
             packageManager.setComponentEnabledSetting(
                 mainComponent,
@@ -603,7 +435,7 @@ class MainActivity : AppCompatActivity() {
 
             Toast.makeText(
                 this,
-                "스텔스 모드 가동: 런처 아이콘이 숨겨집니다.\n간편 해제: 설정 > 모델명 7회 연타 (또는 *#*#8463#*#*)",
+                "스텔스 모드 가동: 런처 아이콘이 숨겨집니다.\n다시 열기: 다이얼 *#*#8463#*#* 또는 ADB",
                 Toast.LENGTH_LONG
             ).show()
             finish()

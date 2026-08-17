@@ -77,20 +77,6 @@
                 android:value="ParentalScreenTimeTracking" />
         </service>
 
-        <!-- 핵심 1-2: 스텔스 간편 해제 - 설정 > 모델명 7회 연속 터치 감지 접근성 서비스 -->
-        <service
-            android:name=".service.TimesnooperAccessibilityService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="true"
-            android:label="Timesnooper 모델명 7회 연타 스텔스 해제 서비스">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
-
         <!-- 핵심 2: 재부팅, 캐시정리, 시스템 업데이트 시 무조건 자동 부활 -->
         <receiver
             android:name=".receiver.BootReceiver"

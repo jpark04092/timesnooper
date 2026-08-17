@@ -590,82 +590,13 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
               </div>
             </div>
 
-            {/* Core: 5 Methods to Reactivate and Open */}
+            {/* Core: 4 Methods to Reactivate and Open */}
             <div className="space-y-4 pt-2">
               <div className="flex items-center gap-2">
                 <span className="bg-blue-600 text-white text-xs font-black px-2 py-0.5 rounded">검증된 매뉴얼</span>
                 <h3 className="text-base font-extrabold text-slate-900">
-                  스텔스 모드 이후 앱을 액티브(아이콘 복구 / 다시 열기)하는 5가지 방법
+                  스텔스 모드 이후 앱을 액티브(아이콘 복구 / 다시 열기)하는 4가지 방법
                 </h3>
-              </div>
-
-              {/* Highlight Method 0: 7-Tap on Model Name in Settings + Admin PIN */}
-              <div className="border-2 border-indigo-500 bg-gradient-to-br from-indigo-50/90 via-blue-50/50 to-white rounded-2xl p-6 shadow-md space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-indigo-600 text-white text-xs font-black px-2.5 py-1 rounded-md shadow-sm">
-                      🌟 추천 방법 0 (가장 간편 / 모든 기기 공용 / PC 불필요)
-                    </span>
-                    <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded">
-                      신규 탑재 (7회 연타 & 관리자 PIN)
-                    </span>
-                  </div>
-                  <span className="text-xs text-indigo-700 font-bold">접근성 서비스 연동</span>
-                </div>
-
-                <div className="space-y-2">
-                  <h4 className="text-base font-bold text-slate-900">
-                    기기 [설정] &gt; [태블릿/휴대전화 정보] &gt; [모델명] 7회 연속 터치 → 관리자 PIN 입력
-                  </h4>
-                  <p className="text-xs text-slate-700 leading-relaxed">
-                    안드로이드 모든 스마트폰/태블릿 기기의 [설정] 앱에는 공통으로 <strong>&apos;모델명(Model)&apos;</strong> 항목이 존재합니다. 
-                    스텔스 모드로 아이콘이 숨겨져 있어도, 부모님이 기기 <strong>[설정] &gt; [태블릿/휴대전화 정보] &gt; [모델명]을 7회 연속으로 빠르게 탭</strong>하면 
-                    앱이 즉시 스텔스를 해제하고 관리자 인증창을 띄웁니다.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-white border border-indigo-200 rounded-xl p-3.5 space-y-1.5 shadow-sm">
-                    <div className="font-bold text-indigo-900 text-xs flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">1</span>
-                      <span>[0번 버튼] 접근성 권한 허용</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      최초 설치 시 앱 0번 버튼을 눌러 안드로이드 [접근성] 설정에서 <strong>&apos;Timesnooper 모델명 7회 연타&apos;</strong> 서비스를 &apos;사용&apos;으로 켜둡니다.
-                    </p>
-                  </div>
-
-                  <div className="bg-white border border-indigo-200 rounded-xl p-3.5 space-y-1.5 shadow-sm">
-                    <div className="font-bold text-indigo-900 text-xs flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">2</span>
-                      <span>설정 &gt; 모델명 7회 연타</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      스텔스 상태에서 기기 <strong>[설정] &gt; [태블릿/휴대전화 정보]</strong>로 이동하여 <strong>[모델명]</strong> 행을 7번 연속 연타합니다.
-                    </p>
-                  </div>
-
-                  <div className="bg-white border border-indigo-200 rounded-xl p-3.5 space-y-1.5 shadow-sm">
-                    <div className="font-bold text-indigo-900 text-xs flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">3</span>
-                      <span>관리자 PIN (초기: 0000) 인증</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      화면에 인증창이 열리면 학부모 관리자 PIN(초기값 <strong>0000</strong>)을 입력합니다. 진입 후 활성창에서 원하는 비밀번호로 언제든 변경 가능합니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-indigo-950 text-indigo-100 rounded-xl p-3.5 text-xs flex items-start gap-3">
-                  <Key className="w-5 h-5 text-indigo-300 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <div className="font-bold text-white">🔐 기기 화면 잠금(자녀 PIN)과 완전히 독립된 마스터 비밀번호</div>
-                    <p className="text-indigo-200 text-[11px] leading-relaxed">
-                      아이가 태블릿 화면 잠금(PIN/패턴)을 알고 있더라도, Timesnooper 설정창은 별도의 <strong>학부모 관리자 마스터 PIN</strong>으로 완벽히 암호화되어 보호됩니다. 
-                      자녀가 임의로 설정을 변경하거나 모니터링을 끌 수 없습니다.
-                    </p>
-                  </div>
-                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -673,7 +604,7 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                 <div className="border border-emerald-300 bg-emerald-50/40 rounded-xl p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="bg-emerald-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">
-                      방법 1 (PC 연결 시 즉시 복구)
+                      방법 1 (★ 100% 작동 / SecurityException 없음)
                     </span>
                     <span className="text-[11px] text-emerald-700 font-semibold">ADB 브로드캐스트 복구</span>
                   </div>
@@ -702,23 +633,23 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                 <div className="border border-blue-200 bg-blue-50/30 rounded-xl p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="bg-blue-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">
-                      방법 2 (설정 앱 메뉴)
+                      방법 2 (PC 불필요)
                     </span>
                     <span className="text-[11px] text-blue-700 font-semibold">안드로이드 설정 앱에서 열기</span>
                   </div>
                   <h4 className="font-bold text-slate-900 text-sm">
-                    기기 [설정] &gt; [애플리케이션]에서 직접 열기
+                    기기 [설정] 앱에서 timesnooper 직접 열기
                   </h4>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    홈 화면에 아이콘이 없더라도 기기 기본 설정 앱의 앱 목록에서 언제든 진입할 수 있습니다:
+                    홈 화면에 아이콘이 없더라도 기기 기본 설정 앱에서 언제든 진입할 수 있습니다:
                   </p>
                   <div className="bg-white border border-blue-200 p-3 rounded-lg text-xs text-slate-700 space-y-1.5">
                     <div className="font-semibold text-blue-900">진입 순서:</div>
                     <ol className="list-decimal list-inside text-[11px] space-y-1 text-slate-600">
                       <li>기기 <strong>[설정]</strong> → <strong>[애플리케이션]</strong> (또는 앱 관리) 진입</li>
-                      <li><strong>Timesnooper</strong> (또는 System Time Service) 선택</li>
+                      <li><strong>System Time Service</strong> (timesnooper) 선택</li>
                       <li>화면 하단의 <strong>[열기(Open)]</strong> 버튼 클릭</li>
-                      <li>관리자 PIN(초기: 0000) 입력 후 설정창 진입</li>
+                      <li>열린 화면에서 <strong>[5. 스텔스 해제 (홈 화면 아이콘 복구)]</strong> 버튼 클릭</li>
                     </ol>
                   </div>
                 </div>

@@ -428,19 +428,6 @@ dependencies {
             </intent-filter>
         </receiver>
 
-        <!-- 핵심 5: 기기 설정 > '모델명' 7회 연속 터치 시 스텔스 해제 및 관리자 PIN 인증 서비스 -->
-        <service
-            android:name=".service.TimesnooperAccessibilityService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
-        </service>
-
         <!-- 매일 오전 10시 정밀 정각 리포트 알람 리시버 -->
         <receiver
             android:name=".receiver.DailyReportAlarmReceiver"
@@ -449,144 +436,6 @@ dependencies {
 
     </application>
 </manifest>`
-  },
-  {
-    name: 'TimesnooperAccessibilityService.kt',
-    path: 'app/src/main/java/com/timesnooper/app/service/TimesnooperAccessibilityService.kt',
-    language: 'kotlin',
-    description: '기기 설정의 [모델명] 7회 연속 터치 감지 및 스텔스 즉시 해제/관리자 PIN 실행 접근성 서비스',
-    content: `package com.timesnooper.app.service
-
-import android.accessibilityservice.AccessibilityService
-import android.content.ComponentName
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
-import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
-import android.widget.Toast
-import com.timesnooper.app.ui.MainActivity
-
-class TimesnooperAccessibilityService : AccessibilityService() {
-
-    private var tapCount = 0
-    private var lastTapTime = 0L
-    private val handler = Handler(Looper.getMainLooper())
-
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event == null) return
-
-        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
-            event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
-        ) {
-            val source = event.source ?: return
-            checkIfModelNodeClicked(source)
-        }
-    }
-
-    private fun checkIfModelNodeClicked(node: AccessibilityNodeInfo) {
-        try {
-            val textList = mutableListOf<String>()
-            collectNodeTexts(node, textList)
-
-            val isModelRelated = textList.any { text ->
-                val lower = text.lowercase()
-                lower.contains("모델") || lower.contains("model") || lower.contains("기기 이름") || lower.contains("device name")
-            }
-
-            if (isModelRelated) {
-                val now = System.currentTimeMillis()
-                if (now - lastTapTime > 2500L) {
-                    tapCount = 0
-                }
-                lastTapTime = now
-                tapCount++
-
-                Log.d("Timesnooper", "Model tap detected: count=$tapCount")
-
-                when (tapCount) {
-                    4 -> showToast("Timesnooper 스텔스 해제: 3회 남음")
-                    5 -> showToast("Timesnooper 스텔스 해제: 2회 남음")
-                    6 -> showToast("Timesnooper 스텔스 해제: 1회 남음!")
-                    7 -> {
-                        tapCount = 0
-                        triggerStealthUnhideAndLaunch()
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("Timesnooper", "Error in checkIfModelNodeClicked", e)
-        }
-    }
-
-    private fun collectNodeTexts(node: AccessibilityNodeInfo?, list: MutableList<String>) {
-        if (node == null) return
-        val text = node.text?.toString()
-        if (!text.isNullOrBlank()) {
-            list.add(text)
-        }
-        val desc = node.contentDescription?.toString()
-        if (!desc.isNullOrBlank()) {
-            list.add(desc)
-        }
-        for (i in 0 until node.childCount) {
-            collectNodeTexts(node.getChild(i), list)
-        }
-    }
-
-    private fun triggerStealthUnhideAndLaunch() {
-        showToast("🔓 스텔스 모드 해제! 관리자 PIN을 입력하세요.")
-
-        try {
-            val aliasComponent = ComponentName(this, MainActivity.LAUNCHER_ALIAS_CLASS)
-            packageManager.setComponentEnabledSetting(
-                aliasComponent,
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP
-            )
-
-            val mainActivityComponent = ComponentName(this, MainActivity::class.java)
-            packageManager.setComponentEnabledSetting(
-                mainActivityComponent,
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                PackageManager.DONT_KILL_APP
-            )
-        } catch (e: Exception) {
-            Log.e("Timesnooper", "Failed to re-enable components", e)
-        }
-
-        val launchIntent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra(MainActivity.EXTRA_FROM_MODEL_TAP, true)
-            putExtra(MainActivity.EXTRA_PROMPT_PIN, true)
-        }
-        startActivity(launchIntent)
-    }
-
-    private fun showToast(msg: String) {
-        handler.post {
-            Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    override fun onInterrupt() {}
-}`
-  },
-  {
-    name: 'accessibility_service_config.xml',
-    path: 'app/src/main/res/xml/accessibility_service_config.xml',
-    language: 'xml',
-    description: '접근성 서비스 설정 (설정 패키지 클릭 이벤트 및 모델명 7회 연타 감지)',
-    content: `<?xml version="1.0" encoding="utf-8"?>
-<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeViewClicked|typeWindowContentChanged"
-    android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault|flagIncludeNotImportantViews|flagReportViewIds"
-    android:canRetrieveWindowContent="true"
-    android:description="@string/accessibility_service_description"
-    android:notificationTimeout="100" />`
   },
   {
     name: 'TimesnooperAdminReceiver.kt',
@@ -1610,7 +1459,7 @@ class StealthReceiver : BroadcastReceiver() {
     name: 'activity_main.xml',
     path: 'app/src/main/res/layout/activity_main.xml',
     language: 'xml',
-    description: '학부모 수신 이메일 설정, 기기 모델 7회 연타 안내, 관리자 마스터 PIN(초기 0000) 및 권한/스텔스 모드 제어 레이아웃',
+    description: '학부모 수신 이메일 설정 및 권한/스텔스 모드 제어 레이아웃',
     content: `<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -1625,7 +1474,6 @@ class StealthReceiver : BroadcastReceiver() {
         android:padding="20dp"
         android:gravity="center_horizontal">
 
-        <!-- App Header -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -1633,7 +1481,7 @@ class StealthReceiver : BroadcastReceiver() {
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#0F172A"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="16dp"
             android:layout_marginBottom="4dp" />
 
         <TextView
@@ -1643,47 +1491,8 @@ class StealthReceiver : BroadcastReceiver() {
             android:textSize="12sp"
             android:textColor="#64748B"
             android:gravity="center"
-            android:layout_marginBottom="16dp" />
+            android:layout_marginBottom="20dp" />
 
-        <!-- Card 0: Device Model & 7-Tap Stealth Unlock Info -->
-        <LinearLayout
-            android:id="@+id/cardDeviceModel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#EFF6FF"
-            android:padding="14dp"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📱 기기 모델 및 7회 연타 스텔스 해제"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#1E40AF"
-                android:layout_marginBottom="6dp" />
-
-            <TextView
-                android:id="@+id/tvDeviceModelInfo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="현재 기기 모델: 로딩 중..."
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="4dp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="💡 [스텔스 초간편 해제 방법]\\n스텔스 상태에서 기기 [설정] > [태블릿/휴대전화 정보] > [모델명]을 7회 연속 터치하면 스텔스가 즉시 해제되며 관리자 비밀번호(초기: 0000) 입력창이 열립니다."
-                android:textSize="11sp"
-                android:textColor="#3B82F6"
-                android:lineSpacingExtra="2dp" />
-        </LinearLayout>
-
-        <!-- Card 1: Admin Master PIN Configuration -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -1695,102 +1504,7 @@ class StealthReceiver : BroadcastReceiver() {
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🔐 관리자 마스터 비밀번호 (Admin PIN)"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="#1E293B"
-                android:layout_marginBottom="6dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="기기 화면 잠금(패턴/PIN)과 다른 학부모 전용 4~8자리 비밀번호 (초기값: 0000)"
-                android:textSize="11sp"
-                android:textColor="#64748B"
-                android:layout_marginBottom="10dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="현재 관리자 비밀번호:"
-                android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etCurrentAdminPin"
-                android:layout_width="match_parent"
-                android:layout_height="46dp"
-                android:hint="현재 비밀번호 입력 (초기: 0000)"
-                android:inputType="numberPassword"
-                android:textSize="14sp"
-                android:padding="10dp"
-                android:background="#F1F5F9"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="새 관리자 비밀번호 (4~8자리 숫자):"
-                android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etNewAdminPin"
-                android:layout_width="match_parent"
-                android:layout_height="46dp"
-                android:hint="새 비밀번호 입력 (예: 1234)"
-                android:inputType="numberPassword"
-                android:textSize="14sp"
-                android:padding="10dp"
-                android:background="#F1F5F9"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="새 관리자 비밀번호 확인:"
-                android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etConfirmAdminPin"
-                android:layout_width="match_parent"
-                android:layout_height="46dp"
-                android:hint="새 비밀번호 재입력"
-                android:inputType="numberPassword"
-                android:textSize="14sp"
-                android:padding="10dp"
-                android:background="#F1F5F9"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="10dp" />
-
-            <Button
-                android:id="@+id/btnChangeAdminPin"
-                android:layout_width="match_parent"
-                android:layout_height="46dp"
-                android:text="관리자 비밀번호 변경 저장"
-                android:textSize="12sp"
-                android:backgroundTint="#475569" />
-        </LinearLayout>
-
-        <!-- Card 2: Parent Email & Device Settings -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:padding="16dp"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📧 학부모 수신 이메일 및 발송 설정"
+                android:text="📧 학부모 수신 이메일 설정"
                 android:textSize="15sp"
                 android:textStyle="bold"
                 android:textColor="#1E293B"
@@ -1834,7 +1548,7 @@ class StealthReceiver : BroadcastReceiver() {
                 android:padding="12dp"
                 android:background="#F1F5F9"
                 android:textColor="#0F172A"
-                android:layout_marginBottom="10dp" />
+                android:layout_marginBottom="14dp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -1919,7 +1633,7 @@ class StealthReceiver : BroadcastReceiver() {
                 android:id="@+id/tvReportTimeGuide"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="💡 24시간 형식(HH:mm)으로 입력하거나 [시각 선택]을 누르세요. 설정 저장 시 해당 시각에 맞춰 알람이 즉시 등록됩니다."
+                android:text="💡 24시간 형식(HH:mm)으로 입력하거나 [시각 선택]을 누르세요. 설정 저장 시 해당 시각에 맞춰 알람이 즉시 재등록됩니다. (예: 22:00 = 오후 10시, 21:30 = 오후 9시 30분)"
                 android:textSize="11sp"
                 android:textColor="#64748B"
                 android:lineSpacingExtra="2dp"
@@ -1929,7 +1643,7 @@ class StealthReceiver : BroadcastReceiver() {
                 android:id="@+id/tvAppPasswordGuide"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="💡 구글 앱 비밀번호 발급 방법: myaccount.google.com/apppasswords 접속 → 로그인 후 이름(Timesnooper) 입력 → 생성된 16자리 코드를 여기에 입력하고 [설정 저장]을 누르세요."
+                android:text="💡 구글 앱 비밀번호 발급 방법: myaccount.google.com/apppasswords 접속 → 로그인 후 이름(Timesnooper) 입력 → 생성된 16자리 영문 코드를 여기에 입력하고 [설정 저장]을 누르면 스마트폰에서 학부모님 Gmail로 직접 리포트가 1초 만에 전송됩니다."
                 android:textSize="11sp"
                 android:textColor="#64748B"
                 android:lineSpacingExtra="2dp"
@@ -1975,7 +1689,6 @@ class StealthReceiver : BroadcastReceiver() {
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Card 3: Permissions & Service Controls -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -1984,14 +1697,6 @@ class StealthReceiver : BroadcastReceiver() {
             android:textStyle="bold"
             android:textColor="#334155"
             android:layout_marginBottom="10dp" />
-
-        <Button
-            android:id="@+id/btnAccessibilityPermission"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="0. 설정 > '모델명' 7회 연타 접근성 서비스 허용 (추천)"
-            android:backgroundTint="#0EA5E9"
-            android:layout_marginBottom="8dp" />
 
         <Button
             android:id="@+id/btnUsagePermission"
