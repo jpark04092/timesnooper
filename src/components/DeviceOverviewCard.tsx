@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { ChildDevice } from '../types';
-import { Tablet, Smartphone, Battery, BatteryCharging, ShieldAlert, ShieldCheck, Lock, Activity, AlertTriangle, Plus } from 'lucide-react';
+import { Tablet, Smartphone, Battery, BatteryCharging, ShieldAlert, ShieldCheck, Lock, Activity, AlertTriangle, Plus, EyeOff, Eye } from 'lucide-react';
 
 interface DeviceOverviewCardProps {
   devices: ChildDevice[];
   selectedDeviceId: string;
   onSelectDevice: (id: string) => void;
   onAddNewDevice: () => void;
+  onToggleStealth?: (deviceId: string) => void;
 }
 
 export const DeviceOverviewCard: React.FC<DeviceOverviewCardProps> = ({
@@ -14,7 +15,34 @@ export const DeviceOverviewCard: React.FC<DeviceOverviewCardProps> = ({
   selectedDeviceId,
   onSelectDevice,
   onAddNewDevice,
+  onToggleStealth,
 }) => {
+  const [modelClickCounts, setModelClickCounts] = useState<Record<string, number>>({});
+  const clickTimerRef = useRef<Record<string, any>>({});
+
+  const handleModelClick = (e: React.MouseEvent, deviceId: string) => {
+    e.stopPropagation();
+
+    const currentCount = (modelClickCounts[deviceId] || 0) + 1;
+
+    if (clickTimerRef.current[deviceId]) {
+      clearTimeout(clickTimerRef.current[deviceId] as any);
+    }
+
+    clickTimerRef.current[deviceId] = setTimeout(() => {
+      setModelClickCounts((prev) => ({ ...prev, [deviceId]: 0 }));
+    }, 2500);
+
+    if (currentCount >= 7) {
+      setModelClickCounts((prev) => ({ ...prev, [deviceId]: 0 }));
+      if (onToggleStealth) {
+        onToggleStealth(deviceId);
+      }
+    } else {
+      setModelClickCounts((prev) => ({ ...prev, [deviceId]: currentCount }));
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -42,6 +70,7 @@ export const DeviceOverviewCard: React.FC<DeviceOverviewCardProps> = ({
           const timeStr = `${totalHours > 0 ? `${totalHours}시간 ` : ''}${totalMins}분`;
           const limitPercent = Math.min(100, Math.round((telemetry.screenTimeMinutes / device.dailyGoalLimitMinutes) * 100));
           const isOverLimit = telemetry.screenTimeMinutes > device.dailyGoalLimitMinutes;
+          const clickCount = modelClickCounts[device.id] || 0;
 
           return (
             <div
@@ -54,7 +83,7 @@ export const DeviceOverviewCard: React.FC<DeviceOverviewCardProps> = ({
                   : 'bg-white/80 border-slate-200 hover:border-slate-300 hover:bg-white'
               }`}
             >
-              {/* Top Row: Device icon, Name, Android version */}
+              {/* Top Row: Device icon, Name, Model, Android version */}
               <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-3">
                   <div
@@ -72,10 +101,33 @@ export const DeviceOverviewCard: React.FC<DeviceOverviewCardProps> = ({
                           태블릿
                         </span>
                       )}
+                      {device.stealthModeEnabled ? (
+                        <span className="text-[10px] bg-slate-100 text-slate-600 font-medium px-1.5 py-0.5 rounded flex items-center gap-0.5" title="스텔스 모드 활성화됨">
+                          <EyeOff className="w-2.5 h-2.5" /> 스텔스
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 animate-pulse" title="스텔스 모드 해제됨 (앱 아이콘 노출)">
+                          <Eye className="w-2.5 h-2.5" /> 노출 모드
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-slate-500 font-medium truncate max-w-[180px]">
-                      {device.deviceName}
-                    </p>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mt-0.5">
+                      <span className="truncate max-w-[120px]">{device.deviceName}</span>
+                      <span>•</span>
+                      <button
+                        type="button"
+                        onClick={(e) => handleModelClick(e, device.id)}
+                        className="font-mono text-slate-600 hover:text-blue-600 px-1 py-0.5 rounded bg-slate-100 hover:bg-blue-50 transition-colors select-none cursor-pointer"
+                        title="클릭하여 모델명 확인 (연속 7회 클릭 시 스텔스 모드 토글)"
+                      >
+                        {device.model || 'SM-Model'}
+                        {clickCount > 0 && clickCount < 7 && (
+                          <span className="ml-1 text-[10px] text-blue-600 font-bold animate-bounce">
+                            ({clickCount}/7)
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 

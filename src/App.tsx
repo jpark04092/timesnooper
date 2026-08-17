@@ -67,6 +67,22 @@ export default function App() {
 
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId) || devices[0];
 
+  // Toggle Stealth Mode Easter Egg (Triggered after 7 clicks on model name)
+  const handleToggleStealth = (deviceId: string) => {
+    setDevices((prev) =>
+      prev.map((d) => {
+        if (d.id !== deviceId) return d;
+        const newStealth = !d.stealthModeEnabled;
+        const bannerMsg = newStealth
+          ? `🔒 [이스터에그] ${d.childName} 기기의 스텔스 모드가 다시 활성화되었습니다. (앱 서랍 숨김)`
+          : `🔓 [이스터에그] ${d.childName} 기기의 스텔스 모드가 해제되었습니다! (앱 아이콘 노출 모드)`;
+        setGlobalBanner(bannerMsg);
+        setTimeout(() => setGlobalBanner(null), 6000);
+        return { ...d, stealthModeEnabled: newStealth };
+      })
+    );
+  };
+
   // Send Daily Scheduled Report
   const handleSendReport = async (email: string, mode: 'MANUAL_TEST' | 'AUTOMATIC_SCHEDULED' | 'AUTOMATIC_10AM' = 'MANUAL_TEST') => {
     setIsSendingReport(true);
@@ -96,7 +112,6 @@ export default function App() {
         setGlobalBanner(data.message || `[데일리 리포트 발송 완료] ${targetEmail} 로 일일 보고서가 발송되었습니다.`);
         setTimeout(() => setGlobalBanner(null), 7000);
       } else {
-        // Fallback local log update
         const newLog: EmailReportLog = {
           id: `log-${Date.now()}`,
           deviceId: selectedDevice?.id || 'device-1',
@@ -261,10 +276,8 @@ export default function App() {
           });
         }
 
-        // Sort apps by duration
         currentApps.sort((a, b) => b.durationMinutes - a.durationMinutes);
 
-        // Update hourly timeline
         const currentHour = new Date().getHours();
         const updatedTimeline = [...(currentTelemetry.hourlyTimeline || [])];
         const existingHour = updatedTimeline.find((h) => h.hour === currentHour);
@@ -318,7 +331,7 @@ export default function App() {
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span>{globalBanner}</span>
             </div>
-            <button onClick={() => setGlobalBanner(null)} className="text-slate-400 hover:text-white">
+            <button onClick={() => setGlobalBanner(null)} className="text-slate-400 hover:text-white cursor-pointer">
               닫기
             </button>
           </div>
@@ -333,6 +346,7 @@ export default function App() {
               selectedDeviceId={selectedDeviceId}
               onSelectDevice={(id) => setSelectedDeviceId(id)}
               onAddNewDevice={() => setIsNewDeviceModalOpen(true)}
+              onToggleStealth={handleToggleStealth}
             />
 
             {/* In-depth App Analytics & Timeline */}
