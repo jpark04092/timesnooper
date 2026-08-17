@@ -100,24 +100,18 @@ jobs:
           fi
 
           # Release 안내 README 생성/업데이트
-          cat << 'EOF' > release/README.md
-# Timesnooper Built APK Releases
-
-이 폴더는 GitHub Actions 자동 빌드 워크플로우에 의해 생성된 최신 안드로이드 설치용 APK가 자동으로 커밋/저장되는 폴더입니다.
-
-- **최신 디버그 APK**: \`timesnooper-debug.apk\` (또는 \`app-debug.apk\`)
-- **최신 릴리즈 APK**: \`timesnooper-release.apk\` (또는 \`timesnooper-release-unsigned.apk\`)
-- **빌드 일시**: $(date '+%Y-%m-%d %H:%M:%S UTC')
-- **트리거 커밋**: \${{ github.sha }}
-
-## 다운로드 및 기기 설치 방법
-1. GitHub 웹에서 \`timesnooper-debug.apk\` 파일을 클릭한 후 **Download** (또는 View raw) 버튼을 눌러 스마트폰/태블릿으로 다운로드합니다.
-2. 안드로이드 기기의 다운로드 폴더에서 APK를 터치하여 설치합니다. (출처를 알 수 없는 앱 설치 허용)
-3. ADB로 설치 시:
-   \`\`\`bash
-   adb install -r release/timesnooper-debug.apk
-   \`\`\`
-EOF
+          echo "# Timesnooper Built APK Releases" > release/README.md
+          echo "" >> release/README.md
+          echo "GitHub Actions 자동 빌드 워크플로우에 의해 생성된 최신 안드로이드 설치용 APK 폴더입니다." >> release/README.md
+          echo "" >> release/README.md
+          echo "- **최신 디버그 APK**: timesnooper-debug.apk (또는 app-debug.apk)" >> release/README.md
+          echo "- **최신 릴리즈 APK**: timesnooper-release.apk" >> release/README.md
+          echo "- **빌드 일시**: $(date '+%Y-%m-%d %H:%M:%S UTC')" >> release/README.md
+          echo "- **트리거 커밋**: \${{ github.sha }}" >> release/README.md
+          echo "" >> release/README.md
+          echo "## 다운로드 및 기기 설치 방법" >> release/README.md
+          echo "1. GitHub 웹에서 timesnooper-debug.apk 파일을 클릭한 후 Download 버튼을 눌러 스마트폰/태블릿으로 다운로드합니다." >> release/README.md
+          echo "2. 안드로이드 기기의 다운로드 폴더에서 APK를 터치하여 설치합니다. (출처를 알 수 없는 앱 설치 허용)" >> release/README.md
 
           # Git 커밋 및 푸시
           git config user.name "github-actions[bot]"
