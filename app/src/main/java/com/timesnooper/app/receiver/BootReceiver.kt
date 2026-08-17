@@ -26,8 +26,8 @@ class BootReceiver : BroadcastReceiver() {
             // 1. 디바이스 정책 재검증 (삭제 방지)
             TimesnooperAdminReceiver.enforceProtectionPolicies(context)
 
-            // 2. 오전 10시 알람 스케줄러 보장
-            DailyReportAlarmReceiver.scheduleDaily10AmAlarm(context)
+            // 2. 일일 리포트 알람 스케줄러 보장 (설정된 시각, 기본 22:00)
+            DailyReportAlarmReceiver.scheduleDailyAlarm(context)
 
             // 3. 백그라운드 모니터 서비스 실행
             val serviceIntent = Intent(context, TimesnooperMonitorService::class.java)

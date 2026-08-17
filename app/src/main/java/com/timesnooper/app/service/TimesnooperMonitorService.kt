@@ -25,8 +25,8 @@ class TimesnooperMonitorService : Service() {
         createNotificationChannel()
         startForeground(NOTIF_ID, createSilentNotification())
         
-        // 매일 오전 10시 알람 스케줄러 재등록
-        DailyReportAlarmReceiver.scheduleDaily10AmAlarm(this)
+        // 매일 정기 리포트 알람 스케줄러 등록 (기본 오후 10시 / 22:00)
+        DailyReportAlarmReceiver.scheduleDailyAlarm(this)
 
         // 15분 주기 주기적 백그라운드 사용량 캐싱 및 동기화 루프
         executor.scheduleWithFixedDelay({

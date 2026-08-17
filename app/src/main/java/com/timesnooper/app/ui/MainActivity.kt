@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.app.TimePickerDialog
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -41,6 +42,9 @@ class MainActivity : AppCompatActivity() {
         const val KEY_CHILD_NAME = "child_name"
         const val KEY_SENDER_EMAIL = "sender_email"
         const val KEY_SENDER_APP_PASSWORD = "sender_app_password"
+        const val KEY_REPORT_TIME = "report_time"
+        const val KEY_REPORT_HOUR = "report_hour"
+        const val KEY_REPORT_MINUTE = "report_minute"
         const val LAUNCHER_ALIAS_CLASS = "com.timesnooper.app.ui.LauncherAlias"
     }
 
@@ -49,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etChildName: EditText
     private lateinit var etSenderEmail: EditText
     private lateinit var etSenderAppPassword: EditText
+    private lateinit var etReportTime: EditText
     private lateinit var tvStatusLog: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,20 +66,57 @@ class MainActivity : AppCompatActivity() {
         etChildName = findViewById(R.id.etChildName)
         etSenderEmail = findViewById(R.id.etSenderEmail)
         etSenderAppPassword = findViewById(R.id.etSenderAppPassword)
+        etReportTime = findViewById(R.id.etReportTime)
         tvStatusLog = findViewById(R.id.tvStatusLog)
 
-        // 저장된 학부모 이메일 및 발신 계정 불러오기
+        // 저장된 학부모 이메일, 발신 계정 및 리포트 발송 시각 불러오기
         val savedParentEmail = prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com")
         val savedChildName = prefs.getString(KEY_CHILD_NAME, "자녀 (갤럭시 탭)")
         val savedSenderEmail = prefs.getString(KEY_SENDER_EMAIL, "jpark04092@gmail.com")
         val savedPassword = prefs.getString(KEY_SENDER_APP_PASSWORD, "")
+        val savedReportTime = prefs.getString(KEY_REPORT_TIME, "22:00") ?: "22:00"
 
         etParentEmail.setText(savedParentEmail)
         etChildName.setText(savedChildName)
         etSenderEmail.setText(savedSenderEmail)
         etSenderAppPassword.setText(savedPassword)
+        etReportTime.setText(savedReportTime)
 
-        // 이메일 설정 저장 버튼
+        // 시각 선택 다이얼로그 바인딩
+        val timePickerAction = {
+            val currentTime = etReportTime.text.toString().trim()
+            var initHour = 22
+            var initMinute = 0
+            val parts = currentTime.split(":")
+            if (parts.size == 2) {
+                initHour = parts[0].toIntOrNull() ?: 22
+                initMinute = parts[1].toIntOrNull() ?: 0
+            }
+
+            TimePickerDialog(
+                this,
+                { _, hourOfDay, minute ->
+                    val formatted = String.format(Locale.KOREA, "%02d:%02d", hourOfDay, minute)
+                    etReportTime.setText(formatted)
+                    val amPm = if (hourOfDay < 12) "오전" else "오후"
+                    val displayH = if (hourOfDay % 12 == 0) 12 else hourOfDay % 12
+                    Toast.makeText(this, "선택된 발송 시각: $amPm ${displayH}시 ${minute}분 ($formatted)", Toast.LENGTH_SHORT).show()
+                },
+                initHour,
+                initMinute,
+                true // 24시간 형식
+            ).show()
+        }
+
+        findViewById<Button>(R.id.btnSelectReportTime)?.setOnClickListener {
+            timePickerAction()
+        }
+
+        etReportTime.setOnClickListener {
+            timePickerAction()
+        }
+
+        // 이메일 및 시각 설정 저장 버튼
         findViewById<Button>(R.id.btnSaveSettings)?.setOnClickListener {
             saveEmailSettings()
         }
@@ -135,21 +177,54 @@ class MainActivity : AppCompatActivity() {
         val childName = etChildName.text.toString().trim()
         val senderEmail = etSenderEmail.text.toString().trim()
         val appPassword = etSenderAppPassword.text.toString().trim()
+        val reportTimeStr = etReportTime.text.toString().trim().ifEmpty { "22:00" }
 
         if (parentEmail.isEmpty() || !parentEmail.contains("@")) {
             Toast.makeText(this, "수신할 학부모 이메일 주소를 올바르게 입력해주세요.", Toast.LENGTH_SHORT).show()
             return
         }
 
+        // 시각 파싱 검증 (HH:mm 형식)
+        var targetHour = 22
+        var targetMinute = 0
+        val timeParts = reportTimeStr.split(":")
+        if (timeParts.size == 2) {
+            val h = timeParts[0].trim().toIntOrNull()
+            val m = timeParts[1].trim().toIntOrNull()
+            if (h != null && h in 0..23 && m != null && m in 0..59) {
+                targetHour = h
+                targetMinute = m
+            } else {
+                Toast.makeText(this, "리포트 발송 시각을 24시간 형식(00:00 ~ 23:59)으로 입력해주세요.", Toast.LENGTH_SHORT).show()
+                return
+            }
+        } else {
+            Toast.makeText(this, "리포트 발송 시각 형식이 올바르지 않습니다. (예: 22:00)", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val formattedTime = String.format(Locale.KOREA, "%02d:%02d", targetHour, targetMinute)
+        etReportTime.setText(formattedTime)
+
         prefs.edit()
             .putString(KEY_PARENT_EMAIL, parentEmail)
             .putString(KEY_CHILD_NAME, if (childName.isEmpty()) "자녀" else childName)
             .putString(KEY_SENDER_EMAIL, if (senderEmail.isEmpty()) parentEmail else senderEmail)
             .putString(KEY_SENDER_APP_PASSWORD, appPassword)
+            .putString(KEY_REPORT_TIME, formattedTime)
+            .putInt(KEY_REPORT_HOUR, targetHour)
+            .putInt(KEY_REPORT_MINUTE, targetMinute)
             .apply()
 
-        tvStatusLog.text = "💾 설정 저장 완료 (수신처: $parentEmail, 발신: ${if (senderEmail.isEmpty()) parentEmail else senderEmail})"
-        Toast.makeText(this, "설정이 성공적으로 저장되었습니다.", Toast.LENGTH_SHORT).show()
+        // 변경된 발송 시각으로 알람 매니저 즉시 재설정
+        DailyReportAlarmReceiver.scheduleDailyAlarm(this)
+
+        val amPm = if (targetHour < 12) "오전" else "오후"
+        val displayH = if (targetHour % 12 == 0) 12 else targetHour % 12
+        val displayTime = "$amPm ${displayH}시 ${targetMinute}분 ($formattedTime)"
+
+        tvStatusLog.text = "💾 설정 저장 완료 (수신처: $parentEmail, 정기 발송: 매일 $displayTime)"
+        Toast.makeText(this, "설정 저장 완료: 매일 $displayTime 에 리포트가 발송됩니다.", Toast.LENGTH_LONG).show()
     }
 
     private fun sendLiveTestReport() {
@@ -284,7 +359,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             startService(serviceIntent)
         }
-        DailyReportAlarmReceiver.scheduleDaily10AmAlarm(this)
+        DailyReportAlarmReceiver.scheduleDailyAlarm(this)
         Toast.makeText(this, "Timesnooper 백그라운드 감시 및 정기 리포트 알람 활성화됨", Toast.LENGTH_SHORT).show()
     }
 

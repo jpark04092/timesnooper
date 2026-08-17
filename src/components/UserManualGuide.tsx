@@ -63,7 +63,7 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
               timesnooper 설치 가이드 및 완벽 사용설명서
             </h1>
             <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-              아이의 기기(태블릿/스마트폰)에 앱을 안전하게 설치하고, 삭제 방지(Device Owner) 설정부터 매일 오전 10시 정기 리포트 수신까지 모든 과정을 안내합니다.
+              아이의 기기(태블릿/스마트폰)에 앱을 안전하게 설치하고, 삭제 방지(Device Owner) 설정부터 매일 밤(기본 오후 10시 / 시각 설정 가능) 정기 리포트 수신까지 모든 과정을 안내합니다.
             </p>
           </div>
 
