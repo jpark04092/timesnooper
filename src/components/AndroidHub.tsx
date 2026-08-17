@@ -358,11 +358,12 @@ adb uninstall com.timesnooper.app`}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-900 space-y-1.5">
               <div className="font-bold flex items-center gap-1.5 text-blue-800">
                 <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                <span>GitHub Actions 최신 러너(Node 24) 및 Gradle 빌드 환경 최적화 완료</span>
+                <span>GitHub Actions 최적화 및 저장소 release/ 폴더 자동 APK 커밋 탑재 완료</span>
               </div>
               <p className="text-blue-700 leading-relaxed">
-                • <strong>Node 20 지원 중단 대응</strong>: <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">actions/setup-java@v5</code> 및 <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">gradle/actions/setup-gradle@v4</code>로 업그레이드하여 Node 24 러너에서 경고 없이 고속 빌드됩니다.<br/>
-                • <strong>Gradle 파일 매칭 오류 해결</strong>: 루트 <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">settings.gradle.kts</code>, <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">build.gradle.kts</code>, <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">gradlew</code> 및 네이티브 안드로이드 소스 전체가 저장소에 구성되어 즉시 APK가 생성됩니다.
+                • <strong>코드 저장소 내 release/ 폴더 자동 배치</strong>: 워크플로우가 빌드 완료 후 <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">release/timesnooper-debug.apk</code> 및 릴리즈 파일을 저장소 브랜치로 자동 커밋·푸시하여 별도 아티팩트 다운로드 절차 없이 GitHub 웹 코드 탐색기에서 바로 다운로드할 수 있습니다.<br/>
+                • <strong>무한 루프 방지 & 권한</strong>: <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">permissions: contents: write</code> 및 <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">[skip ci]</code> 태그를 적용하여 안전하게 자동 저장됩니다.<br/>
+                • <strong>최신 런타임 호환</strong>: <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">actions/setup-java@v5</code> & <code className="bg-blue-100 px-1 py-0.5 rounded font-mono">gradle/actions/setup-gradle@v4</code>로 Node 24 러너 완벽 지원.
               </p>
             </div>
 
@@ -371,30 +372,30 @@ adb uninstall com.timesnooper.app`}
               <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-4 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
                   <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center font-bold">1</span>
-                  <span>파일 경로 생성 및 커밋</span>
+                  <span>Push 또는 워크플로우 실행</span>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  GitHub 저장소의 <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-blue-700">.github/workflows/build-apk.yml</code> 경로에 워크플로우 파일을 추가하고 Push합니다.
+                  코드를 Push하거나 GitHub 저장소 <strong>Actions</strong> 탭에서 <strong>Run workflow</strong> 버튼을 클릭합니다.
                 </p>
               </div>
 
               <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-4 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
                   <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center font-bold">2</span>
-                  <span>Actions 탭에서 빌드 감지</span>
+                  <span>APK 빌드 및 release/ 폴더 커밋</span>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  저장소의 <strong>[Actions]</strong> 탭으로 이동하면 자동으로 <strong className="text-slate-900">Build Timesnooper Android APK</strong> 작업이 실행되며 Ubuntu 가상머신에서 빌드됩니다.
+                  클라우드 러너에서 Gradle이 APK를 빌드한 후, 저장소의 <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-blue-700">release/</code> 폴더로 APK 파일을 자동 복사하여 커밋 및 푸시합니다.
                 </p>
               </div>
 
               <div className="border border-slate-200 bg-slate-50/50 rounded-xl p-4 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
                   <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center font-bold">3</span>
-                  <span>Artifacts에서 APK 다운로드</span>
+                  <span>저장소 Code 탭에서 즉시 다운로드</span>
                 </div>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  빌드가 완료되면 하단 <strong>Artifacts</strong> 영역에 생성된 <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-emerald-700">timesnooper-debug-apk</code>를 클릭하여 다운로드합니다.
+                  GitHub 저장소의 <code className="bg-slate-200 px-1 py-0.5 rounded font-mono text-emerald-700">release/timesnooper-debug.apk</code> 파일을 클릭하여 언제든 원클릭으로 다운로드하고 기기에 설치합니다.
                 </p>
               </div>
             </div>

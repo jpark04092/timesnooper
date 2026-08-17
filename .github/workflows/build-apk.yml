@@ -17,6 +17,9 @@ on:
           - release
           - all
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build & Package Android APK
@@ -27,6 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK 17 (Temurin)
         uses: actions/setup-java@v5
@@ -57,7 +61,7 @@ jobs:
 
       # 2. Release APK 빌드
       - name: Build Release APK
-        if: ${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' }}
+        if: ${{ github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' || github.event_name == 'push' }}
         run: |
           if [ -f "./gradlew" ]; then
             ./gradlew assembleRelease --stacktrace || echo "Release build step completed"
@@ -65,7 +69,61 @@ jobs:
             gradle assembleRelease --stacktrace || echo "Release build step completed"
           fi
 
-      # 3. Debug APK 아티팩트 업로드
+      # 3. APK 파일을 저장소 release/ 폴더로 복사 및 자동 Git 커밋/푸시
+      - name: Copy APK to release/ folder & Commit to Repository
+        if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref_name != '' }}
+        run: |
+          mkdir -p release
+          
+          # Debug APK 복사 (최신 APK를 release 폴더로 배치)
+          if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+            cp app/build/outputs/apk/debug/app-debug.apk release/timesnooper-debug.apk
+            cp app/build/outputs/apk/debug/app-debug.apk release/app-debug.apk
+            echo "Copied debug APK to release/"
+          fi
+          
+          # Release APK 복사 (존재할 경우)
+          if [ -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+            cp app/build/outputs/apk/release/app-release-unsigned.apk release/timesnooper-release-unsigned.apk
+            echo "Copied release-unsigned APK to release/"
+          elif [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+            cp app/build/outputs/apk/release/app-release.apk release/timesnooper-release.apk
+            echo "Copied release APK to release/"
+          fi
+
+          # Release 안내 README 생성/업데이트
+          cat << 'EOF' > release/README.md
+# Timesnooper Built APK Releases
+
+이 폴더는 GitHub Actions 자동 빌드 워크플로우에 의해 생성된 최신 안드로이드 설치용 APK가 자동으로 커밋/저장되는 폴더입니다.
+
+- **최신 디버그 APK**: `timesnooper-debug.apk` (또는 `app-debug.apk`)
+- **최신 릴리즈 APK**: `timesnooper-release.apk` (또는 `timesnooper-release-unsigned.apk`)
+- **빌드 일시**: $(date '+%Y-%m-%d %H:%M:%S UTC')
+- **트리거 커밋**: ${{ github.sha }}
+
+## 다운로드 및 기기 설치 방법
+1. GitHub 웹에서 `timesnooper-debug.apk` 파일을 클릭한 후 **Download** (또는 View raw) 버튼을 눌러 스마트폰/태블릿으로 다운로드합니다.
+2. 안드로이드 기기의 다운로드 폴더에서 APK를 터치하여 설치합니다. (출처를 알 수 없는 앱 설치 허용)
+3. ADB로 설치 시:
+   \`\`\`bash
+   adb install -r release/timesnooper-debug.apk
+   \`\`\`
+EOF
+
+          # Git 커밋 및 푸시
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add release/
+          
+          if git diff --staged --quiet; then
+            echo "No changes in release/ folder to commit."
+          else
+            git commit -m "chore(release): auto-update built APKs in release/ folder [skip ci]"
+            git push origin HEAD:${{ github.ref_name }} || echo "Push failed or branch is protected."
+          fi
+
+      # 4. Debug APK 아티팩트 업로드 (Actions 탭 다운로드용 백업)
       - name: Upload Debug APK Artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -74,17 +132,20 @@ jobs:
           path: |
             app/build/outputs/apk/debug/*.apk
             **/build/outputs/apk/debug/*.apk
+            release/*.apk
           if-no-files-found: warn
           retention-days: 30
 
-      # 4. Release APK 아티팩트 업로드
+      # 5. Release APK 아티팩트 업로드 (Actions 탭 다운로드용 백업)
       - name: Upload Release APK Artifact
-        if: ${{ (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all') }}
+        if: ${{ (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'all' || github.event_name == 'push') }}
         uses: actions/upload-artifact@v4
         with:
           name: timesnooper-release-apk
           path: |
             app/build/outputs/apk/release/*.apk
             **/build/outputs/apk/release/*.apk
+            release/*.apk
           if-no-files-found: warn
           retention-days: 30
+
