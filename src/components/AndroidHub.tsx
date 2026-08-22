@@ -76,7 +76,7 @@ export const AndroidHub: React.FC = () => {
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              3대 보안 원리
+              4대 보안 원리
             </button>
             <button
               onClick={() => setActiveTab('adb-setup')}
@@ -115,7 +115,7 @@ export const AndroidHub: React.FC = () => {
 
       {/* Tab 1: Architecture Pillars */}
       {activeTab === 'architecture' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {/* Pillar 1: Background & Anti-Kill */}
           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
@@ -153,7 +153,7 @@ export const AndroidHub: React.FC = () => {
               </li>
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>오전 10시 알람 스케줄러 누락 없이 즉시 재등록</span>
+                <span>매일 정기 알람 스케줄러 누락 없이 즉시 재등록</span>
               </li>
             </ul>
           </div>
@@ -175,6 +175,27 @@ export const AndroidHub: React.FC = () => {
               <li className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 <span>안전모드(Safe Mode) 진입 시에도 강제 삭제 불가</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Pillar 4: Chameleon Camouflage */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+              <Layers className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-slate-900 text-base">4. 시스템 필수 앱 위장 (Chameleon)</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              앱 이름과 상단바 알림을 <strong className="text-purple-700">&quot;Google Play 서비스 지원&quot;</strong>으로 완벽 위장하여 아이가 설정을 뒤져보더라도 삭제할 엄두를 내지 못하게 만듭니다.
+            </p>
+            <ul className="text-xs text-slate-500 space-y-1.5 pt-2 border-t border-slate-100">
+              <li className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                <span>기기 관리자: &apos;Google Play 서비스 보안 관리자&apos;</span>
+              </li>
+              <li className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                <span>알림: &apos;Google Play 서비스 지원 / 보안 최적화 중&apos;</span>
               </li>
             </ul>
           </div>
