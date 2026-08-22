@@ -77,6 +77,16 @@ interface SmtpDispatchResult {
   triedSenders?: string[];
 }
 
+// Helper to parse multiple recipient emails separated by comma, semicolon, newline, or space
+function parseAndNormalizeRecipients(raw: string): string[] {
+  if (!raw) return [];
+  const list = raw
+    .split(/[;, \r\n\t]+/)
+    .map(e => e.trim().replace(/[<>]/g, ''))
+    .filter(e => e.length > 0 && e.includes('@'));
+  return Array.from(new Set(list));
+}
+
 async function sendMailSingleSender(
   sender: SenderAccount,
   to: string,
@@ -90,6 +100,14 @@ async function sendMailSingleSender(
     return {
       success: false,
       error: `발송지 [${user || '미지정'}]에 앱 비밀번호가 설정되지 않았습니다.`
+    };
+  }
+
+  const recipients = parseAndNormalizeRecipients(to);
+  if (recipients.length === 0) {
+    return {
+      success: false,
+      error: `유효한 수신자 이메일 주소가 없습니다 (입력값: "${to}").`
     };
   }
 
@@ -115,7 +133,7 @@ async function sendMailSingleSender(
 
   const info = await transporter.sendMail({
     from,
-    to,
+    to: recipients.join(', '),
     subject,
     html,
   });

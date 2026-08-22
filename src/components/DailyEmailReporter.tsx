@@ -599,22 +599,23 @@ export const DailyEmailReporter: React.FC<DailyEmailReporterProps> = ({
         {/* Email Recipient & Time Configuration */}
         <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              학부모 수신 이메일 주소
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+              <span>학부모 수신 이메일 주소 (다중 수신자 지원)</span>
+              <span className="text-[11px] text-indigo-600 font-semibold">; 또는 , 로 2명 이상 입력 가능</span>
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 id="input-recipient-email"
-                type="email"
+                type="text"
                 value={recipientEmail}
                 onChange={(e) => setRecipientEmail(e.target.value)}
-                placeholder="예: parent@gmail.com"
-                className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-blue-500 outline-none"
+                placeholder="예: father@gmail.com; mother@gmail.com"
+                className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:bg-white focus:border-blue-500 outline-none font-mono"
               />
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              * 기기별로 각각 다른 이메일 수신처를 지정하거나 동일 수신처로 일괄 관리할 수 있습니다.
+              * 세미콜론(;) 또는 쉼표(,)로 구분하여 여러 명의 학부모/보호자 이메일로 동시 발송할 수 있습니다.
             </p>
           </div>
 

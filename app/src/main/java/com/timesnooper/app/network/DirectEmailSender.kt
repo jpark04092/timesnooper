@@ -36,6 +36,20 @@ object DirectEmailSender {
 
         val cleanPassword = senderAppPassword.replace(" ", "").trim()
 
+        val rawRecipients = payload.recipientEmail
+        val recipientList = rawRecipients
+            .split(Regex("[,; \\r\\n\\t]+"))
+            .map { it.trim().replace("<", "").replace(">", "") }
+            .filter { it.isNotEmpty() && it.contains("@") }
+            .distinct()
+
+        if (recipientList.isEmpty()) {
+            return SendResult(
+                isSuccess = false,
+                message = "유효한 수신자 이메일 주소가 없습니다 (입력값: $rawRecipients)."
+            )
+        }
+
         var socket: SSLSocket? = null
         var reader: BufferedReader? = null
         var writer: PrintWriter? = null
@@ -93,8 +107,10 @@ object DirectEmailSender {
             // 4. MAIL FROM
             sendCommand("MAIL FROM:<$senderEmail>", "250")
 
-            // 5. RCPT TO
-            sendCommand("RCPT TO:<${payload.recipientEmail}>", "250")
+            // 5. RCPT TO for all recipients
+            for (rcpt in recipientList) {
+                sendCommand("RCPT TO:<$rcpt>", "250")
+            }
 
             // 6. DATA
             sendCommand("DATA", "354")
@@ -195,7 +211,8 @@ object DirectEmailSender {
 
             val messageHeaders = StringBuilder()
             messageHeaders.append("From: Timesnooper Service <$senderEmail>\r\n")
-            messageHeaders.append("To: <${payload.recipientEmail}>\r\n")
+            val toHeaderFormatted = recipientList.joinToString(", ") { "<$it>" }
+            messageHeaders.append("To: $toHeaderFormatted\r\n")
             messageHeaders.append("Subject: $encodedSubject\r\n")
             messageHeaders.append("MIME-Version: 1.0\r\n")
             messageHeaders.append("Content-Type: text/html; charset=UTF-8\r\n")
@@ -223,7 +240,7 @@ object DirectEmailSender {
 
             return SendResult(
                 isSuccess = true,
-                message = "Gmail(${payload.recipientEmail})로 리포트가 직접 전송되었습니다!"
+                message = "Gmail(${recipientList.joinToString(", ")})로 리포트가 직접 전송되었습니다!"
             )
         } catch (e: Exception) {
             val errMsg = e.localizedMessage ?: e.message ?: "알 수 없는 전송 에러"
