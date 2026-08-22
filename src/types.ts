@@ -30,6 +30,23 @@ export interface DeviceTelemetry {
   lateNightUsageMinutes: number; // usage between 22:00 and 06:00
 }
 
+export interface SenderAccount {
+  id: string;
+  email: string;
+  name: string; // e.g. "학부모 주 발송 계정 (Gmail)", "보조 비상 발송 계정 (Gmail/Naver)"
+  provider: 'gmail' | 'naver' | 'daum' | 'custom';
+  appPasswordMasked: string;
+  appPassword?: string;
+  host?: string;
+  port?: number;
+  isDefault: boolean;
+  createdAt: string;
+  status: 'ACTIVE' | 'STANDBY' | 'ERROR';
+  lastUsedAt?: string;
+  totalSentCount: number;
+  lastError?: string;
+}
+
 export interface ChildDevice {
   id: string;
   childName: string;
@@ -48,6 +65,7 @@ export interface ChildDevice {
   reportRecipientEmail: string;
   scheduledReportTime: string; // e.g. "22:00"
   dailyGoalLimitMinutes: number; // e.g. 180 (3 hours)
+  preferredSenderId?: string;
   todayTelemetry: DeviceTelemetry;
   yesterdayTelemetry?: DeviceTelemetry;
 }
@@ -58,6 +76,8 @@ export interface EmailReportLog {
   deviceName: string;
   childName: string;
   recipientEmail: string;
+  senderEmail?: string;
+  senderName?: string;
   sentAt: string;
   reportDate: string;
   totalScreenTimeMinutes: number;

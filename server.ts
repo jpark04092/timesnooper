@@ -5,7 +5,7 @@ import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
 import { INITIAL_DEVICES, INITIAL_EMAIL_LOGS } from './src/data/initialDevices';
 import { ANDROID_SOURCE_FILES } from './src/data/androidSource';
-import { ChildDevice, DeviceTelemetry, EmailReportLog } from './src/types';
+import { ChildDevice, DeviceTelemetry, EmailReportLog, SenderAccount } from './src/types';
 
 const app = express();
 const PORT = 3000;
@@ -24,80 +24,192 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 let devices: ChildDevice[] = [...INITIAL_DEVICES];
 let reportLogs: EmailReportLog[] = [...INITIAL_EMAIL_LOGS];
 
-// Real SMTP Dispatcher
+// Multi-Sender Accounts Pool (Supports 2 or more sender emails with automatic failover)
+let senderAccounts: SenderAccount[] = [
+  {
+    id: 'sender-1',
+    email: process.env.SMTP_USER?.trim() || 'jpark04092@gmail.com',
+    name: '1차 주 발송지 (Gmail)',
+    provider: 'gmail',
+    appPassword: (process.env.SMTP_PASS || '').replace(/[\s"'-]+/g, '').trim(),
+    appPasswordMasked: process.env.SMTP_PASS ? '••••••••••••••••' : '앱비밀번호 등록 필요',
+    host: process.env.SMTP_HOST?.trim() || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT) || 465,
+    isDefault: true,
+    createdAt: new Date().toISOString(),
+    status: process.env.SMTP_PASS ? 'ACTIVE' : 'STANDBY',
+    totalSentCount: 14
+  },
+  {
+    id: 'sender-2',
+    email: process.env.SMTP_BACKUP_USER?.trim() || 'jpark04092.backup@gmail.com',
+    name: '2차 보조 발송지 (Failover 백업)',
+    provider: 'gmail',
+    appPassword: (process.env.SMTP_BACKUP_PASS || '').replace(/[\s"'-]+/g, '').trim(),
+    appPasswordMasked: process.env.SMTP_BACKUP_PASS ? '••••••••••••••••' : '앱비밀번호 등록 대기',
+    host: 'smtp.gmail.com',
+    port: 465,
+    isDefault: false,
+    createdAt: new Date().toISOString(),
+    status: 'STANDBY',
+    totalSentCount: 0
+  }
+];
+
+// Helper to mask password for client response
+function sanitizeSender(s: SenderAccount): SenderAccount {
+  const { appPassword, ...rest } = s;
+  return {
+    ...rest,
+    appPasswordMasked: appPassword && appPassword.length > 0 ? '••••••••••••••••' : '미등록'
+  };
+}
+
+// Real SMTP Multi-Sender Dispatcher with Automatic Failover
 interface SmtpDispatchResult {
   sentToSmtp: boolean;
   messageId?: string;
   error?: string;
   statusText: string;
+  senderEmail?: string;
+  senderName?: string;
+  failoverOccurred?: boolean;
+  triedSenders?: string[];
 }
 
-async function dispatchRealEmail(to: string, subject: string, html: string): Promise<SmtpDispatchResult> {
-  const user = process.env.SMTP_USER?.trim();
-  // Strip all whitespaces and quotation marks from app password (handles "abcd efgh ijkl mnop" or "abcdefghijklmnop")
-  const rawPass = process.env.SMTP_PASS || '';
-  const pass = rawPass.replace(/[\s"'-]+/g, '').trim();
+async function sendMailSingleSender(
+  sender: SenderAccount,
+  to: string,
+  subject: string,
+  html: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const user = sender.email.trim();
+  const pass = (sender.appPassword || '').replace(/[\s"'-]+/g, '').trim();
 
   if (!user || !pass) {
-    console.log(`[SMTP Not Configured] To: ${to}, Subject: ${subject}`);
     return {
-      sentToSmtp: false,
-      statusText: 'SMTP 미설정 (대시보드 실시간 프리뷰 보관)'
+      success: false,
+      error: `발송지 [${user || '미지정'}]에 앱 비밀번호가 설정되지 않았습니다.`
     };
   }
 
-  const host = process.env.SMTP_HOST?.trim();
-  const isGmail = !host || host === 'smtp.gmail.com' || user.toLowerCase().includes('@gmail.com');
-  const from = process.env.SMTP_FROM?.trim() || `Timesnooper 일일보고서 <${user}>`;
+  const host = sender.host?.trim() || 'smtp.gmail.com';
+  const isGmail = sender.provider === 'gmail' || host.includes('gmail') || user.toLowerCase().includes('@gmail.com');
+  const from = `Timesnooper 일일보고서 <${user}>`;
 
-  try {
-    let transporter: nodemailer.Transporter;
-    if (isGmail) {
-      transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user,
-          pass,
-        },
-      });
-    } else {
-      const port = Number(process.env.SMTP_PORT) || 587;
-      transporter = nodemailer.createTransport({
-        host: host || 'smtp.gmail.com',
-        port,
-        secure: port === 465,
-        auth: {
-          user,
-          pass,
-        },
-      });
-    }
-
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject,
-      html,
+  let transporter: nodemailer.Transporter;
+  if (isGmail) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
     });
+  } else {
+    const port = sender.port || 587;
+    transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+  }
 
-    console.log(`[SMTP Success] Sent email to ${to}, MessageID: ${info.messageId}`);
-    return {
-      sentToSmtp: true,
-      messageId: info.messageId,
-      statusText: `실제 메일함 (${to}) 발송 완료 (ID: ${info.messageId?.slice(0, 14)}...)`
-    };
-  } catch (err: any) {
-    console.error('[SMTP Transport Error]:', err?.message || err);
-    let userFriendlyErr = err?.message || '인증 실패';
-    if (userFriendlyErr.includes('535') || userFriendlyErr.toLowerCase().includes('badcredentials') || userFriendlyErr.toLowerCase().includes('username and password not accepted')) {
-      userFriendlyErr = 'Gmail 앱 비밀번호 인증 실패: 16자리 앱비밀번호가 올바른지 확인해주세요.';
+  const info = await transporter.sendMail({
+    from,
+    to,
+    subject,
+    html,
+  });
+
+  return { success: true, messageId: info.messageId };
+}
+
+async function dispatchRealEmail(
+  to: string,
+  subject: string,
+  html: string,
+  preferredSenderId?: string
+): Promise<SmtpDispatchResult> {
+  // Sort senders: preferred sender first, then default sender, then others
+  const sortedSenders = [...senderAccounts].sort((a, b) => {
+    if (preferredSenderId) {
+      if (a.id === preferredSenderId) return -1;
+      if (b.id === preferredSenderId) return 1;
     }
+    if (a.isDefault && !b.isDefault) return -1;
+    if (!a.isDefault && b.isDefault) return 1;
+    return 0;
+  });
+
+  // Filter candidates that have password configured, or include all for informative messaging
+  const candidateSenders = sortedSenders.filter(s => s.appPassword && s.appPassword.length > 0);
+
+  if (candidateSenders.length === 0) {
+    console.log(`[SMTP Not Configured] No active sender with password. To: ${to}, Subject: ${subject}`);
     return {
       sentToSmtp: false,
-      error: userFriendlyErr,
-      statusText: `SMTP 전송 실패: ${userFriendlyErr}`
+      statusText: '발송지 이메일 비밀번호 미설정 (대시보드 실시간 프리뷰 보관)',
+      senderEmail: sortedSenders[0]?.email || '미설정',
+      senderName: sortedSenders[0]?.name || '기본 발송지',
+      triedSenders: sortedSenders.map(s => s.email)
     };
   }
+
+  const triedSenders: string[] = [];
+  let lastError = '';
+
+  for (let i = 0; i < candidateSenders.length; i++) {
+    const sender = candidateSenders[i];
+    triedSenders.push(sender.email);
+
+    try {
+      console.log(`[SMTP Attempt ${i + 1}/${candidateSenders.length}] Using sender: ${sender.email} (${sender.name})`);
+      const result = await sendMailSingleSender(sender, to, subject, html);
+
+      if (result.success) {
+        sender.totalSentCount += 1;
+        sender.lastUsedAt = new Date().toISOString();
+        sender.status = 'ACTIVE';
+        sender.lastError = undefined;
+
+        const isFailover = i > 0;
+        console.log(`[SMTP Success] Sent email via ${sender.email} to ${to}, MessageID: ${result.messageId}`);
+        return {
+          sentToSmtp: true,
+          messageId: result.messageId,
+          senderEmail: sender.email,
+          senderName: sender.name,
+          failoverOccurred: isFailover,
+          triedSenders,
+          statusText: isFailover 
+            ? `1차 발송 실패 후 2차 발송지 (${sender.email})로 자동 전환(Failover) 전송 성공!`
+            : `발송지 (${sender.email}) -> 수신함 (${to}) 정상 발송 완료 (ID: ${result.messageId?.slice(0, 14)}...)`
+        };
+      } else {
+        lastError = result.error || '전송 실패';
+        sender.status = 'ERROR';
+        sender.lastError = lastError;
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      console.error(`[SMTP Error on ${sender.email}]:`, errMsg);
+      lastError = errMsg;
+      sender.status = 'ERROR';
+      sender.lastError = errMsg;
+    }
+  }
+
+  // If all candidate senders failed
+  let userFriendlyErr = lastError;
+  if (userFriendlyErr.includes('535') || userFriendlyErr.toLowerCase().includes('badcredentials') || userFriendlyErr.toLowerCase().includes('username and password not accepted')) {
+    userFriendlyErr = '구글 16자리 앱 비밀번호 인증 실패: 구글 계정 보안 설정에서 16자리 앱 비밀번호를 다시 확인해주세요.';
+  }
+
+  return {
+    sentToSmtp: false,
+    error: userFriendlyErr,
+    triedSenders,
+    statusText: `모든 발송지(${triedSenders.join(', ')}) 전송 실패: ${userFriendlyErr}`
+  };
 }
 
 // Gemini AI client initialization
@@ -347,7 +459,7 @@ app.post('/api/telemetry', (req: Request, res: Response) => {
 // 5. POST /api/send-report - Trigger report dispatch from web dashboard
 app.post('/api/send-report', async (req: Request, res: Response) => {
   try {
-    const { deviceId, recipientEmail, mode } = req.body || {};
+    const { deviceId, recipientEmail, mode, senderId } = req.body || {};
     const targetDevice = devices.find(d => d.id === deviceId) || devices[0];
 
     if (!targetDevice) {
@@ -402,8 +514,9 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
     const htmlContent = generateReportEmailHtml(targetDevice, telemetry, aiAdvice);
     const subject = `[Timesnooper] ${targetDevice.childName}의 일일 스크린타임 & 앱 사용 보고서 (${telemetry.date})`;
 
-    // Attempt real SMTP email dispatch
-    const smtpResult = await dispatchRealEmail(emailToUse, subject, htmlContent);
+    // Attempt real SMTP email dispatch with multi-sender pool and preferred sender support
+    const preferredSender = senderId || targetDevice.preferredSenderId;
+    const smtpResult = await dispatchRealEmail(emailToUse, subject, htmlContent, preferredSender);
 
     const newLog: EmailReportLog = {
       id: `log-${Date.now()}`,
@@ -411,6 +524,8 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
       deviceName: targetDevice.deviceName,
       childName: targetDevice.childName,
       recipientEmail: emailToUse,
+      senderEmail: smtpResult.senderEmail,
+      senderName: smtpResult.senderName,
       sentAt: new Date().toLocaleString('ko-KR', { hour12: false }) + ' KST',
       reportDate: telemetry.date || new Date().toISOString().split('T')[0],
       totalScreenTimeMinutes: telemetry.screenTimeMinutes || 0,
@@ -427,7 +542,7 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
     reportLogs.unshift(newLog);
 
     const message = smtpResult.sentToSmtp
-      ? `[실제 메일 발송 성공] ${emailToUse} (수신함)으로 일일 보고서가 정상 전송되었습니다!`
+      ? `[실제 메일 발송 성공] ${smtpResult.senderEmail ? `발송지(${smtpResult.senderEmail})에서 ` : ''}${emailToUse} (수신함)으로 일일 보고서가 정상 전송되었습니다!`
       : (smtpResult.error
           ? `[SMTP 전송 실패 알림] ${smtpResult.error}`
           : `[대시보드 리포트 등록] ${emailToUse} 대상 리포트가 대시보드에 정상 보관되었습니다.`);
@@ -450,7 +565,7 @@ app.post('/api/send-report', async (req: Request, res: Response) => {
 // 5-1. POST /api/reports/daily - Direct report endpoint called by Android APK daemon
 app.post('/api/reports/daily', async (req: Request, res: Response) => {
   try {
-    const { deviceId, deviceName, childName, recipientEmail, androidVersion, reportDate, totalScreenTimeMinutes, apps } = req.body || {};
+    const { deviceId, deviceName, childName, recipientEmail, androidVersion, reportDate, totalScreenTimeMinutes, apps, senderEmail } = req.body || {};
 
     const targetEmail = recipientEmail || 'jpark04092@gmail.com';
     const targetChildName = childName || '자녀';
@@ -540,8 +655,9 @@ app.post('/api/reports/daily', async (req: Request, res: Response) => {
     const htmlContent = generateReportEmailHtml(existingDevice, existingDevice.todayTelemetry, aiAdvice);
     const subject = `[Timesnooper 자동발송] ${existingDevice.childName}의 일일 미디어 사용 리포트 (${reportDate || new Date().toISOString().split('T')[0]})`;
 
-    // Attempt real SMTP dispatch
-    const smtpResult = await dispatchRealEmail(targetEmail, subject, htmlContent);
+    // Attempt real SMTP dispatch with failover
+    const preferredSender = senderAccounts.find(s => s.email.toLowerCase() === senderEmail?.toLowerCase())?.id;
+    const smtpResult = await dispatchRealEmail(targetEmail, subject, htmlContent, preferredSender);
 
     const newLog: EmailReportLog = {
       id: `log-${Date.now()}`,
@@ -549,6 +665,8 @@ app.post('/api/reports/daily', async (req: Request, res: Response) => {
       deviceName: existingDevice.deviceName,
       childName: existingDevice.childName,
       recipientEmail: targetEmail,
+      senderEmail: smtpResult.senderEmail || senderEmail,
+      senderName: smtpResult.senderName,
       sentAt: new Date().toLocaleString('ko-KR', { hour12: false }) + ' KST',
       reportDate: reportDate || new Date().toISOString().split('T')[0],
       totalScreenTimeMinutes: Number(totalScreenTimeMinutes) || 0,
@@ -581,20 +699,214 @@ app.post('/api/reports/daily', async (req: Request, res: Response) => {
   }
 });
 
-// 5-2. GET /api/smtp-status - Check SMTP configuration status
+// 5-2. GET /api/smtp-status - Check SMTP configuration status across all senders
 app.get('/api/smtp-status', (req: Request, res: Response) => {
-  const isConfigured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
-  const user = process.env.SMTP_USER 
-    ? `${process.env.SMTP_USER.slice(0, 3)}***@${process.env.SMTP_USER.split('@')[1] || ''}` 
+  const activeSenders = senderAccounts.filter(s => !!(s.appPassword && s.appPassword.length > 0));
+  const configured = activeSenders.length > 0;
+  const defaultSender = senderAccounts.find(s => s.isDefault) || senderAccounts[0];
+  const user = defaultSender?.email 
+    ? `${defaultSender.email.slice(0, 3)}***@${defaultSender.email.split('@')[1] || ''}` 
     : null;
+
   res.json({
-    configured: isConfigured,
-    smtpUser: user,
-    smtpHost: process.env.SMTP_HOST || (isConfigured ? 'smtp.gmail.com' : null),
-    message: isConfigured 
-      ? `SMTP 실제 메일 전송이 활성화되어 있습니다 (${user}).`
-      : `현재 SMTP(Gmail 앱 비밀번호 등)가 미설정되어 있어 대시보드 내 실시간 프리뷰로 확인 가능합니다. 실제 메일함 수신을 원하시면 환경변수에 SMTP_USER / SMTP_PASS를 설정해주세요.`
+    configured,
+    totalSendersCount: senderAccounts.length,
+    activeSendersCount: activeSenders.length,
+    defaultSenderEmail: user,
+    smtpHost: defaultSender?.host || 'smtp.gmail.com',
+    senders: senderAccounts.map(sanitizeSender),
+    message: configured 
+      ? `SMTP 실제 메일 전송이 활성화되어 있습니다 (총 ${senderAccounts.length}개 발송지 등록됨, 주 발송지: ${user}).`
+      : `현재 발송지 메일의 앱 비밀번호가 미설정되어 있어 대시보드 내 실시간 프리뷰로 확인 가능합니다. 실제 메일함 발송을 위해 1차 또는 2차 발송지의 16자리 앱 비밀번호를 등록해주세요.`
   });
+});
+
+// 5-3. Sender Accounts CRUD APIs (다중 발송지 메일 계정 관리)
+// GET /api/senders - List all configured sender accounts
+app.get('/api/senders', (req: Request, res: Response) => {
+  res.json({
+    success: true,
+    senders: senderAccounts.map(sanitizeSender)
+  });
+});
+
+// POST /api/senders - Add a new sender account
+app.post('/api/senders', (req: Request, res: Response) => {
+  const { email, appPassword, name, provider, host, port, isDefault } = req.body || {};
+
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ success: false, message: '올바른 발송지 이메일 주소를 입력해주세요.' });
+  }
+
+  const cleanPassword = (appPassword || '').replace(/[\s"'-]+/g, '').trim();
+  const newId = `sender-${Date.now()}`;
+
+  // If this new sender is marked as default, unmark others
+  if (isDefault) {
+    senderAccounts.forEach(s => { s.isDefault = false; });
+  }
+
+  const newSender: SenderAccount = {
+    id: newId,
+    email: email.trim(),
+    name: name?.trim() || `${senderAccounts.length + 1}차 발송지 (${email.split('@')[0]})`,
+    provider: provider || (email.includes('naver') ? 'naver' : email.includes('daum') || email.includes('kakao') ? 'daum' : 'gmail'),
+    appPassword: cleanPassword,
+    appPasswordMasked: cleanPassword.length > 0 ? '••••••••••••••••' : '미등록',
+    host: host || (email.includes('naver') ? 'smtp.naver.com' : email.includes('daum') ? 'smtp.daum.net' : 'smtp.gmail.com'),
+    port: Number(port) || 465,
+    isDefault: !!isDefault || senderAccounts.length === 0,
+    createdAt: new Date().toISOString(),
+    status: cleanPassword.length > 0 ? 'ACTIVE' : 'STANDBY',
+    totalSentCount: 0
+  };
+
+  senderAccounts.push(newSender);
+
+  res.json({
+    success: true,
+    message: `새로운 발송지 계정 "${newSender.name}" (${newSender.email}) 이 등록되었습니다.`,
+    sender: sanitizeSender(newSender),
+    senders: senderAccounts.map(sanitizeSender)
+  });
+});
+
+// PUT /api/senders/:id - Update sender account
+app.put('/api/senders/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const senderIndex = senderAccounts.findIndex(s => s.id === id);
+
+  if (senderIndex === -1) {
+    return res.status(404).json({ success: false, message: '해당 발송지 계정을 찾을 수 없습니다.' });
+  }
+
+  const { email, appPassword, name, provider, host, port, isDefault } = req.body || {};
+  const current = senderAccounts[senderIndex];
+
+  if (isDefault) {
+    senderAccounts.forEach(s => { s.isDefault = false; });
+  }
+
+  let cleanPassword = current.appPassword;
+  if (appPassword !== undefined && appPassword !== null && appPassword !== '') {
+    cleanPassword = appPassword.replace(/[\s"'-]+/g, '').trim();
+  }
+
+  senderAccounts[senderIndex] = {
+    ...current,
+    email: email !== undefined ? email.trim() : current.email,
+    name: name !== undefined ? name.trim() : current.name,
+    provider: provider || current.provider,
+    appPassword: cleanPassword,
+    appPasswordMasked: cleanPassword && cleanPassword.length > 0 ? '••••••••••••••••' : '미등록',
+    host: host || current.host,
+    port: port !== undefined ? Number(port) : current.port,
+    isDefault: isDefault !== undefined ? !!isDefault : current.isDefault,
+    status: cleanPassword && cleanPassword.length > 0 ? 'ACTIVE' : 'STANDBY'
+  };
+
+  res.json({
+    success: true,
+    message: `발송지 "${senderAccounts[senderIndex].name}" 정보가 수정되었습니다.`,
+    sender: sanitizeSender(senderAccounts[senderIndex]),
+    senders: senderAccounts.map(sanitizeSender)
+  });
+});
+
+// PUT /api/senders/:id/default - Set default primary sender
+app.put('/api/senders/:id/default', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const sender = senderAccounts.find(s => s.id === id);
+
+  if (!sender) {
+    return res.status(404).json({ success: false, message: '해당 발송지 계정을 찾을 수 없습니다.' });
+  }
+
+  senderAccounts.forEach(s => { s.isDefault = (s.id === id); });
+
+  res.json({
+    success: true,
+    message: `기본 1차 주 발송지가 "${sender.name}" (${sender.email}) 로 지정되었습니다.`,
+    senders: senderAccounts.map(sanitizeSender)
+  });
+});
+
+// DELETE /api/senders/:id - Delete sender account
+app.delete('/api/senders/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  
+  if (senderAccounts.length <= 1) {
+    return res.status(400).json({ success: false, message: '최소 1개 이상의 발송지 계정이 등록되어 있어야 합니다.' });
+  }
+
+  const removed = senderAccounts.find(s => s.id === id);
+  senderAccounts = senderAccounts.filter(s => s.id !== id);
+
+  if (removed?.isDefault && senderAccounts.length > 0) {
+    senderAccounts[0].isDefault = true;
+  }
+
+  res.json({
+    success: true,
+    message: `발송지 계정 "${removed?.name || id}" 이 삭제되었습니다.`,
+    senders: senderAccounts.map(sanitizeSender)
+  });
+});
+
+// POST /api/senders/:id/test - Send a test probe email from a specific sender
+app.post('/api/senders/:id/test', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { testRecipientEmail } = req.body || {};
+  const sender = senderAccounts.find(s => s.id === id);
+
+  if (!sender) {
+    return res.status(404).json({ success: false, message: '해당 발송지 계정을 찾을 수 없습니다.' });
+  }
+
+  const to = testRecipientEmail || 'jpark04092@gmail.com';
+  const testSubject = `[Timesnooper 발송지 테스트] "${sender.name}" 계정 연동 확인`;
+  const testHtml = `
+    <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px; max-width: 500px;">
+      <h2 style="color: #0f172a; margin-top: 0;">🛡️ Timesnooper 발송지 계정 테스트</h2>
+      <p style="color: #334155; font-size: 14px;">본 메일은 Timesnooper 발송지 계정 <strong>${sender.name} (${sender.email})</strong> 연동 확인용 테스트 메일입니다.</p>
+      <div style="background: #f1f5f9; padding: 12px; border-radius: 6px; font-size: 12px; color: #475569;">
+        <div>• 발송지 ID: ${sender.id}</div>
+        <div>• 발송 프로바이더: ${sender.provider.toUpperCase()}</div>
+        <div>• 발송 시각: ${new Date().toLocaleString('ko-KR')}</div>
+      </div>
+      <p style="color: #10b981; font-weight: bold; margin-top: 14px;">✅ 정상 발송되었습니다!</p>
+    </div>
+  `;
+
+  try {
+    const sendRes = await sendMailSingleSender(sender, to, testSubject, testHtml);
+    if (sendRes.success) {
+      sender.status = 'ACTIVE';
+      sender.totalSentCount += 1;
+      sender.lastUsedAt = new Date().toISOString();
+      return res.json({
+        success: true,
+        message: `[발송 성공] "${sender.name}" (${sender.email}) -> ${to} 로 테스트 메일이 정상 전송되었습니다 (MessageID: ${sendRes.messageId})`,
+        sender: sanitizeSender(sender)
+      });
+    } else {
+      sender.status = 'ERROR';
+      sender.lastError = sendRes.error;
+      return res.status(400).json({
+        success: false,
+        message: sendRes.error || '발송 실패',
+        sender: sanitizeSender(sender)
+      });
+    }
+  } catch (err: any) {
+    sender.status = 'ERROR';
+    sender.lastError = err?.message || String(err);
+    return res.status(500).json({
+      success: false,
+      message: `전송 에러: ${err?.message || err}`,
+      sender: sanitizeSender(sender)
+    });
+  }
 });
 
 // 6. GET /api/reports/history - View report logs

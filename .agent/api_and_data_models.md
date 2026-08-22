@@ -15,6 +15,12 @@
 | `POST` | `/api/send-report` | 웹 대시보드에서 데일리 리포트 즉시 발송 트리거 (Gemini AI + Nodemailer) | `{ deviceId, recipientEmail, mode: 'MANUAL_TEST' \| 'AUTOMATIC_SCHEDULED' }` | `{ success: boolean, message: string, log: EmailReportLog, smtpResult }` |
 | `POST` | `/api/reports/daily` | 안드로이드 APK 데몬(WorkManager)이 직접 호출하는 일일 리포트 엔드포인트 | `{ deviceId, deviceName, childName, recipientEmail, androidVersion, reportDate, totalScreenTimeMinutes, apps: AppStatEntry[] }` | `{ success: boolean, message: string, log: EmailReportLog, smtpResult }` |
 | `GET` | `/api/smtp-status` | 서버의 SMTP(Gmail 앱 비밀번호 등) 설정 상태 확인 | 없음 | `{ configured: boolean, smtpUser: string \| null, smtpHost: string \| null, message: string }` |
+| `GET` | `/api/senders` | 등록된 다중 발송지(Sender Accounts) 목록 조회 | 없음 | `{ success: boolean, senders: SenderAccount[] }` |
+| `POST` | `/api/senders` | 신규 발송지 계정 추가 (Gmail, Naver, Daum, 커스텀 SMTP) | `{ email, name, appPassword, provider, host, port, isDefault }` | `{ success: boolean, message: string, senders: SenderAccount[] }` |
+| `PUT` | `/api/senders/:id` | 발송지 계정 정보 및 앱 비밀번호 수정 | URL param: `id`, Body: `Partial<SenderAccount>` | `{ success: boolean, message: string, senders: SenderAccount[] }` |
+| `DELETE` | `/api/senders/:id` | 특정 발송지 계정 삭제 | URL param: `id` | `{ success: boolean, message: string, senders: SenderAccount[] }` |
+| `PUT` | `/api/senders/:id/default` | 1차 주 발송지(Default Primary) 지정 | URL param: `id` | `{ success: boolean, message: string, senders: SenderAccount[] }` |
+| `POST` | `/api/senders/:id/test` | 특정 발송지 계정 단독 프로브(Probe) 테스트 메일 발송 | `{ testRecipientEmail? }` | `{ success: boolean, message: string }` |
 | `GET` | `/api/reports/history` | 이메일 발송 이력 및 전송 로그 조회 | 없음 | `{ success: boolean, logs: EmailReportLog[] }` |
 | `GET` | `/api/android-source` | 웹 브라우저용 네이티브 안드로이드 소스코드 파일 패키지 반환 | 없음 | `{ success: boolean, files: AndroidProjectFile[] }` |
 
@@ -81,6 +87,22 @@ export interface ChildDevice {
   yesterdayTelemetry?: DeviceTelemetry;
 }
 
+// 발송지 메일 계정 (2개 이상 지정 & 자동 Failover 지원)
+export interface SenderAccount {
+  id: string;
+  email: string;
+  name: string;
+  provider: 'gmail' | 'naver' | 'daum' | 'custom';
+  appPasswordMasked?: string;
+  isDefault: boolean;
+  host?: string;
+  port?: number;
+  createdAt: string;
+  status: 'ACTIVE' | 'STANDBY' | 'ERROR';
+  lastError?: string;
+  totalSentCount: number;
+}
+
 // 이메일 발송 로그
 export interface EmailReportLog {
   id: string;
@@ -88,6 +110,8 @@ export interface EmailReportLog {
   deviceName: string;
   childName: string;
   recipientEmail: string;
+  senderEmail?: string;
+  senderName?: string;
   sentAt: string;
   reportDate: string;
   totalScreenTimeMinutes: number;

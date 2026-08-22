@@ -68,7 +68,11 @@ export default function App() {
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId) || devices[0];
 
   // Send Daily Scheduled Report
-  const handleSendReport = async (email: string, mode: 'MANUAL_TEST' | 'AUTOMATIC_SCHEDULED' | 'AUTOMATIC_10AM' = 'MANUAL_TEST') => {
+  const handleSendReport = async (
+    email: string,
+    mode: 'MANUAL_TEST' | 'AUTOMATIC_SCHEDULED' | 'AUTOMATIC_10AM' = 'MANUAL_TEST',
+    senderId?: string
+  ) => {
     setIsSendingReport(true);
     const targetEmail = email || selectedDevice?.reportRecipientEmail || 'jpark04092@gmail.com';
     try {
@@ -79,6 +83,7 @@ export default function App() {
           deviceId: selectedDevice?.id || 'device-1',
           recipientEmail: targetEmail,
           mode,
+          senderId,
         }),
       });
 
@@ -103,6 +108,8 @@ export default function App() {
           deviceName: selectedDevice?.deviceName || 'Galaxy Tab A7',
           childName: selectedDevice?.childName || '지훈',
           recipientEmail: targetEmail,
+          senderEmail: 'jpark04092@gmail.com',
+          senderName: '1차 주 발송지 (Gmail)',
           sentAt: new Date().toLocaleString('ko-KR', { hour12: false }) + ' KST',
           reportDate: selectedDevice?.todayTelemetry?.date || new Date().toISOString().split('T')[0],
           totalScreenTimeMinutes: selectedDevice?.todayTelemetry?.screenTimeMinutes || 245,
@@ -115,7 +122,7 @@ export default function App() {
           smtpDeliveryStatus: '대시보드 실시간 프리뷰 보관'
         };
         setEmailLogs((prev) => [newLog, ...prev]);
-        setGlobalBanner(`[대시보드 리포트 등록 완료] 수신처: ${targetEmail} (실제 메일함 수신을 위해 Secrets에 SMTP_USER/SMTP_PASS를 등록할 수 있습니다).`);
+        setGlobalBanner(`[대시보드 리포트 등록 완료] 수신처: ${targetEmail} (실제 메일함 수신을 위해 발송지 앱 비밀번호를 등록할 수 있습니다).`);
         setTimeout(() => setGlobalBanner(null), 7000);
       }
     } catch (e: any) {
@@ -126,6 +133,8 @@ export default function App() {
         deviceName: selectedDevice?.deviceName || 'Galaxy Tab A7',
         childName: selectedDevice?.childName || '지훈',
         recipientEmail: targetEmail,
+        senderEmail: 'jpark04092@gmail.com',
+        senderName: '1차 주 발송지 (Gmail)',
         sentAt: new Date().toLocaleString('ko-KR', { hour12: false }) + ' KST',
         reportDate: selectedDevice?.todayTelemetry?.date || new Date().toISOString().split('T')[0],
         totalScreenTimeMinutes: selectedDevice?.todayTelemetry?.screenTimeMinutes || 245,

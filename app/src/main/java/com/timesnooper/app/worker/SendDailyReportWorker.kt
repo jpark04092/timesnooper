@@ -64,6 +64,8 @@ class SendDailyReportWorker(
             val childName = prefs.getString("child_name", "자녀") ?: "자녀"
             val senderEmail = prefs.getString("sender_email", parentEmail) ?: parentEmail
             val appPassword = prefs.getString("sender_app_password", "") ?: ""
+            val backupSenderEmail = prefs.getString("backup_sender_email", "") ?: ""
+            val backupAppPassword = prefs.getString("backup_sender_app_password", "") ?: ""
 
             val payload = ReportPayload(
                 deviceId = Build.MODEL ?: "unknown_device",
@@ -76,6 +78,7 @@ class SendDailyReportWorker(
                 apps = appStatList
             )
 
+            // 1. 1차 주 발송지 시도
             if (appPassword.isNotBlank()) {
                 val directResult = com.timesnooper.app.network.DirectEmailSender.sendReportViaDirectSmtp(
                     payload = payload,
@@ -83,10 +86,26 @@ class SendDailyReportWorker(
                     senderAppPassword = appPassword
                 )
                 if (directResult.isSuccess) {
-                    Log.i("Timesnooper", "Direct Gmail Daily Report successfully sent to $parentEmail!")
+                    Log.i("Timesnooper", "Direct Gmail Daily Report successfully sent via primary sender ($senderEmail) to $parentEmail!")
                     return@withContext Result.success()
                 } else {
-                    Log.w("Timesnooper", "Direct Gmail failed: ${directResult.message}, trying server fallback...")
+                    Log.w("Timesnooper", "Primary sender failed: ${directResult.message}")
+                }
+            }
+
+            // 2. 2차 보조 발송지 (Failover) 시도
+            if (backupAppPassword.isNotBlank() && backupSenderEmail.isNotBlank()) {
+                Log.i("Timesnooper", "Attempting Failover to secondary backup sender: $backupSenderEmail")
+                val backupResult = com.timesnooper.app.network.DirectEmailSender.sendReportViaDirectSmtp(
+                    payload = payload,
+                    senderEmail = backupSenderEmail,
+                    senderAppPassword = backupAppPassword
+                )
+                if (backupResult.isSuccess) {
+                    Log.i("Timesnooper", "Direct Gmail Daily Report successfully sent via backup sender ($backupSenderEmail) to $parentEmail!")
+                    return@withContext Result.success()
+                } else {
+                    Log.w("Timesnooper", "Backup sender failed: ${backupResult.message}")
                 }
             }
 
