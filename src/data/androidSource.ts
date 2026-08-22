@@ -347,12 +347,23 @@ dependencies {
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Timesnooper">
 
-        <!-- 메인 설정 화면 (직접 호출 및 다이얼/리시버 실행 가능) -->
+        <!-- 메인 설정 화면 (직접 호출, 다이얼/리시버 실행 및 안드로이드 설정 > 앱 상세정보에서 열기/실행 지원) -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
             android:label="@string/title_setup"
-            android:theme="@style/Theme.Timesnooper" />
+            android:theme="@style/Theme.Timesnooper">
+            <!-- 1. 앱 상세정보(설정 > 애플리케이션)에서 '열기(Open)' 버튼을 항상 활성화 (런처 홈 화면에는 아이콘 노출 안 됨) -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.INFO" />
+            </intent-filter>
+            <!-- 2. 안드로이드 설정 > 앱 상세정보 화면의 '앱 내 추가 설정(Preferences)' 버튼 지원 -->
+            <intent-filter>
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- 런처 아이콘 전용 alias: 스텔스 모드 시 이 alias만 비활성화하여 홈/앱스에서 깔끔히 제거 -->
         <activity-alias
@@ -941,10 +952,24 @@ class MainActivity : AppCompatActivity() {
         const val KEY_REPORT_TIME = "report_time"
         const val KEY_REPORT_HOUR = "report_hour"
         const val KEY_REPORT_MINUTE = "report_minute"
+        const val KEY_ADMIN_PASSWORD = "admin_password"
         const val LAUNCHER_ALIAS_CLASS = "com.timesnooper.app.ui.LauncherAlias"
     }
 
     private lateinit var prefs: SharedPreferences
+    private lateinit var scrollViewMain: android.widget.ScrollView
+    private lateinit var layoutLockOverlay: android.widget.LinearLayout
+    private lateinit var tvLockTitle: TextView
+    private lateinit var tvLockSubtitle: TextView
+    private lateinit var tvLockInputLabel1: TextView
+    private lateinit var etLockPasswordInput: EditText
+    private lateinit var tvLockInputLabel2: TextView
+    private lateinit var etLockPasswordConfirm: EditText
+    private lateinit var tvLockError: TextView
+    private lateinit var btnLockSubmit: Button
+    private lateinit var btnLockExit: Button
+
+    private lateinit var etAdminPassword: EditText
     private lateinit var etParentEmail: EditText
     private lateinit var etChildName: EditText
     private lateinit var etSenderEmail: EditText
@@ -952,12 +977,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etReportTime: EditText
     private lateinit var tvStatusLog: TextView
 
+    private var isAuthenticated = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         prefs = getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
 
+        scrollViewMain = findViewById(R.id.scrollViewMain)
+        layoutLockOverlay = findViewById(R.id.layoutLockOverlay)
+        tvLockTitle = findViewById(R.id.tvLockTitle)
+        tvLockSubtitle = findViewById(R.id.tvLockSubtitle)
+        tvLockInputLabel1 = findViewById(R.id.tvLockInputLabel1)
+        etLockPasswordInput = findViewById(R.id.etLockPasswordInput)
+        tvLockInputLabel2 = findViewById(R.id.tvLockInputLabel2)
+        etLockPasswordConfirm = findViewById(R.id.etLockPasswordConfirm)
+        tvLockError = findViewById(R.id.tvLockError)
+        btnLockSubmit = findViewById(R.id.btnLockSubmit)
+        btnLockExit = findViewById(R.id.btnLockExit)
+
+        etAdminPassword = findViewById(R.id.etAdminPassword)
         etParentEmail = findViewById(R.id.etParentEmail)
         etChildName = findViewById(R.id.etChildName)
         etSenderEmail = findViewById(R.id.etSenderEmail)
@@ -965,18 +1005,23 @@ class MainActivity : AppCompatActivity() {
         etReportTime = findViewById(R.id.etReportTime)
         tvStatusLog = findViewById(R.id.tvStatusLog)
 
-        // 저장된 학부모 이메일, 발신 계정 및 리포트 발송 시각 불러오기
+        // 저장된 설정값 불러오기
+        val savedAdminPassword = prefs.getString(KEY_ADMIN_PASSWORD, "") ?: ""
         val savedParentEmail = prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com")
         val savedChildName = prefs.getString(KEY_CHILD_NAME, "자녀 (갤럭시 탭)")
         val savedSenderEmail = prefs.getString(KEY_SENDER_EMAIL, "jpark04092@gmail.com")
         val savedPassword = prefs.getString(KEY_SENDER_APP_PASSWORD, "")
         val savedReportTime = prefs.getString(KEY_REPORT_TIME, "22:00") ?: "22:00"
 
+        etAdminPassword.setText(savedAdminPassword)
         etParentEmail.setText(savedParentEmail)
         etChildName.setText(savedChildName)
         etSenderEmail.setText(savedSenderEmail)
         etSenderAppPassword.setText(savedPassword)
         etReportTime.setText(savedReportTime)
+
+        // 1. 관리자 전용 비밀번호 인증 / 초기 등록 화면 구동
+        setupAdminLock(savedInstanceState)
 
         // 시각 선택 다이얼로그 바인딩
         val timePickerAction = {
@@ -1058,7 +1103,7 @@ class MainActivity : AppCompatActivity() {
             disableStealthMode()
         }
 
-        // 1. 필수 사용정보 접근 권한 체크 (UsageStats)
+        // 필수 사용정보 접근 권한 체크 (UsageStats)
         if (!hasUsageStatsPermission()) {
             tvStatusLog.text = "⚠️ 주의: '사용 정보 접근 권한'이 허용되지 않았습니다. 1번 버튼을 눌러 허용해주세요."
             Toast.makeText(this, "아이 앱 사용시간 추적을 위해 '사용 정보 접근' 권한을 허용해주세요.", Toast.LENGTH_LONG).show()
@@ -1068,12 +1113,107 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupAdminLock(savedInstanceState: Bundle?) {
+        if (savedInstanceState != null) {
+            isAuthenticated = savedInstanceState.getBoolean("is_authenticated", false)
+        }
+
+        if (isAuthenticated) {
+            unlockUi()
+            return
+        }
+
+        val savedPassword = prefs.getString(KEY_ADMIN_PASSWORD, "") ?: ""
+        val isFirstSetup = savedPassword.isEmpty()
+
+        if (isFirstSetup) {
+            // 최초 설치 모드: 관리자 비밀번호 신규 등록 UI
+            tvLockTitle.text = "🔑 관리자 비밀번호 초기 설정"
+            tvLockSubtitle.text = "자녀의 임의 접근 및 설정 변경을 방지하기 위해 관리자(학부모) 전용 비밀번호를 설정해주세요.\\n(기기 화면 잠금번호와 별개로 설정됩니다)"
+            tvLockInputLabel1.text = "새 관리자 비밀번호 (4자리 이상):"
+            etLockPasswordInput.hint = "비밀번호 입력 (숫자 PIN 또는 영문)"
+            tvLockInputLabel2.visibility = android.view.View.VISIBLE
+            etLockPasswordConfirm.visibility = android.view.View.VISIBLE
+            btnLockSubmit.text = "비밀번호 설정 및 시작"
+            btnLockExit.visibility = android.view.View.GONE
+            tvLockError.visibility = android.view.View.GONE
+
+            btnLockSubmit.setOnClickListener {
+                val p1 = etLockPasswordInput.text.toString().trim()
+                val p2 = etLockPasswordConfirm.text.toString().trim()
+
+                if (p1.length < 4) {
+                    tvLockError.text = "⚠️ 비밀번호는 최소 4자리 이상으로 설정해주세요."
+                    tvLockError.visibility = android.view.View.VISIBLE
+                    return@setOnClickListener
+                }
+                if (p1 != p2) {
+                    tvLockError.text = "⚠️ 비밀번호 확인이 일치하지 않습니다. 다시 입력해주세요."
+                    tvLockError.visibility = android.view.View.VISIBLE
+                    return@setOnClickListener
+                }
+
+                prefs.edit().putString(KEY_ADMIN_PASSWORD, p1).apply()
+                etAdminPassword.setText(p1)
+                isAuthenticated = true
+                Toast.makeText(this, "🛡️ 관리자 비밀번호가 안전하게 설정되었습니다.", Toast.LENGTH_SHORT).show()
+                unlockUi()
+            }
+        } else {
+            // 앱 실행 / 재진입 모드: 관리자 비밀번호 인증 요구 UI
+            tvLockTitle.text = "🔒 관리자 비밀번호 인증"
+            tvLockSubtitle.text = "Timesnooper 설정에 진입하려면 설정한 관리자 비밀번호를 입력해주세요."
+            tvLockInputLabel1.text = "관리자 비밀번호:"
+            etLockPasswordInput.hint = "비밀번호 입력"
+            tvLockInputLabel2.visibility = android.view.View.GONE
+            etLockPasswordConfirm.visibility = android.view.View.GONE
+            btnLockSubmit.text = "인증 및 설정 열기"
+            btnLockExit.visibility = android.view.View.VISIBLE
+            tvLockError.visibility = android.view.View.GONE
+
+            btnLockSubmit.setOnClickListener {
+                val inputPass = etLockPasswordInput.text.toString().trim()
+                val currentSavedPass = prefs.getString(KEY_ADMIN_PASSWORD, "") ?: ""
+
+                if (inputPass == currentSavedPass && inputPass.isNotEmpty()) {
+                    isAuthenticated = true
+                    Toast.makeText(this, "🔓 관리자 인증 완료", Toast.LENGTH_SHORT).show()
+                    unlockUi()
+                } else {
+                    tvLockError.text = "❌ 비밀번호가 일치하지 않습니다. 다시 입력해주세요."
+                    tvLockError.visibility = android.view.View.VISIBLE
+                    etLockPasswordInput.setText("")
+                }
+            }
+
+            btnLockExit.setOnClickListener {
+                finish()
+            }
+        }
+    }
+
+    private fun unlockUi() {
+        layoutLockOverlay.visibility = android.view.View.GONE
+        scrollViewMain.visibility = android.view.View.VISIBLE
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("is_authenticated", isAuthenticated)
+    }
+
     private fun saveEmailSettings() {
+        val adminPassword = etAdminPassword.text.toString().trim()
         val parentEmail = etParentEmail.text.toString().trim()
         val childName = etChildName.text.toString().trim()
         val senderEmail = etSenderEmail.text.toString().trim()
         val appPassword = etSenderAppPassword.text.toString().trim()
         val reportTimeStr = etReportTime.text.toString().trim().ifEmpty { "22:00" }
+
+        if (adminPassword.isNotEmpty() && adminPassword.length < 4) {
+            Toast.makeText(this, "관리자 비밀번호는 최소 4자리 이상이어야 합니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         if (parentEmail.isEmpty() || !parentEmail.contains("@")) {
             Toast.makeText(this, "수신할 학부모 이메일 주소를 올바르게 입력해주세요.", Toast.LENGTH_SHORT).show()
@@ -1102,7 +1242,7 @@ class MainActivity : AppCompatActivity() {
         val formattedTime = String.format(Locale.KOREA, "%02d:%02d", targetHour, targetMinute)
         etReportTime.setText(formattedTime)
 
-        prefs.edit()
+        val editor = prefs.edit()
             .putString(KEY_PARENT_EMAIL, parentEmail)
             .putString(KEY_CHILD_NAME, if (childName.isEmpty()) "자녀" else childName)
             .putString(KEY_SENDER_EMAIL, if (senderEmail.isEmpty()) parentEmail else senderEmail)
@@ -1110,7 +1250,11 @@ class MainActivity : AppCompatActivity() {
             .putString(KEY_REPORT_TIME, formattedTime)
             .putInt(KEY_REPORT_HOUR, targetHour)
             .putInt(KEY_REPORT_MINUTE, targetMinute)
-            .apply()
+
+        if (adminPassword.isNotEmpty()) {
+            editor.putString(KEY_ADMIN_PASSWORD, adminPassword)
+        }
+        editor.apply()
 
         // 변경된 발송 시각으로 알람 매니저 즉시 재설정
         DailyReportAlarmReceiver.scheduleDailyAlarm(this)
@@ -1476,304 +1620,458 @@ class StealthReceiver : BroadcastReceiver() {
     name: 'activity_main.xml',
     path: 'app/src/main/res/layout/activity_main.xml',
     language: 'xml',
-    description: '학부모 수신 이메일 설정 및 권한/스텔스 모드 제어 레이아웃',
+    description: '관리자 전용 비밀번호 인증 잠금화면, 학부모 이메일 설정, 권한 승인 및 스텔스 모드 제어 레이아웃',
     content: `<?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:background="#F8FAFC">
+    android:background="#0F172A">
 
-    <LinearLayout
+    <!-- 메인 설정 스크롤 뷰 (관리자 인증 전에는 숨김) -->
+    <ScrollView
+        android:id="@+id/scrollViewMain"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp"
-        android:gravity="center_horizontal">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Google Play 서비스 지원"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="#0F172A"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="4dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="자녀 기기 백그라운드 사용량 자동 수집 및 안심 일일 리포트"
-            android:textSize="12sp"
-            android:textColor="#64748B"
-            android:gravity="center"
-            android:layout_marginBottom="20dp" />
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:background="#F8FAFC"
+        android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#FFFFFF"
-            android:padding="16dp"
-            android:layout_marginBottom="16dp">
+            android:padding="20dp"
+            android:gravity="center_horizontal">
 
+            <!-- App Header -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="📧 학부모 수신 이메일 설정"
-                android:textSize="15sp"
+                android:text="Google Play 서비스 지원"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                android:textColor="#1E293B"
-                android:layout_marginBottom="12dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="리포트를 수신할 학부모 이메일 주소:"
-                android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etParentEmail"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:hint="예: jpark04092@gmail.com"
-                android:inputType="textEmailAddress"
-                android:textSize="14sp"
-                android:padding="12dp"
-                android:background="#F1F5F9"
                 android:textColor="#0F172A"
-                android:layout_marginBottom="10dp" />
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="4dp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="자녀 이름 또는 기기 별칭:"
+                android:text="자녀 기기 백그라운드 사용량 자동 수집 및 안심 일일 리포트"
                 android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
+                android:textColor="#64748B"
+                android:gravity="center"
+                android:layout_marginBottom="20dp" />
 
-            <EditText
-                android:id="@+id/etChildName"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:hint="예: 지우 (갤럭시 탭)"
-                android:inputType="text"
-                android:textSize="14sp"
-                android:padding="12dp"
-                android:background="#F1F5F9"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="14dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📨 발신용 Gmail 계정 (리포트를 보낼 계정):"
-                android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etSenderEmail"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:hint="예: jpark04092@gmail.com"
-                android:inputType="textEmailAddress"
-                android:textSize="14sp"
-                android:padding="12dp"
-                android:background="#F1F5F9"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="10dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🔑 구글 16자리 앱 비밀번호 (Google App Password):"
-                android:textSize="12sp"
-                android:textColor="#475569"
-                android:layout_marginBottom="4dp" />
-
-            <EditText
-                android:id="@+id/etSenderAppPassword"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:hint="abcd efgh ijkl mnop (공백 무관)"
-                android:inputType="textPassword"
-                android:textSize="14sp"
-                android:padding="12dp"
-                android:background="#F1F5F9"
-                android:textColor="#0F172A"
-                android:layout_marginBottom="10dp" />
-
-            <!-- Daily Report Schedule Time Setting -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⏰ 일일 리포트 정기 발송 시각 (기본: 22:00 / 오후 10시):"
-                android:textSize="12sp"
-                android:textStyle="bold"
-                android:textColor="#1E293B"
-                android:layout_marginBottom="4dp" />
-
+            <!-- Card: Parent Email & Device Settings -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="6dp">
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📧 학부모 수신 이메일 및 보안 설정"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E293B"
+                    android:layout_marginBottom="12dp" />
+
+                <!-- 관리자 전용 비밀번호 설정 필드 -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔒 관리자 접속 비밀번호 (앱 실행 시 인증용):"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E293B"
+                    android:layout_marginBottom="4dp" />
 
                 <EditText
-                    android:id="@+id/etReportTime"
-                    android:layout_width="0dp"
+                    android:id="@+id/etAdminPassword"
+                    android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:hint="22:00 (오후 10시)"
-                    android:inputType="time"
+                    android:hint="관리자 비밀번호 (4자리 이상)"
+                    android:inputType="textPassword"
                     android:textSize="14sp"
                     android:padding="12dp"
                     android:background="#F1F5F9"
                     android:textColor="#0F172A"
-                    android:layout_marginEnd="8dp" />
+                    android:layout_marginBottom="10dp" />
 
-                <Button
-                    android:id="@+id/btnSelectReportTime"
+                <TextView
                     android:layout_width="wrap_content"
-                    android:layout_height="48dp"
-                    android:text="시각 선택"
+                    android:layout_height="wrap_content"
+                    android:text="리포트를 수신할 학부모 이메일 주소:"
                     android:textSize="12sp"
-                    android:backgroundTint="#475569" />
+                    android:textColor="#475569"
+                    android:layout_marginBottom="4dp" />
+
+                <EditText
+                    android:id="@+id/etParentEmail"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="예: jpark04092@gmail.com"
+                    android:inputType="textEmailAddress"
+                    android:textSize="14sp"
+                    android:padding="12dp"
+                    android:background="#F1F5F9"
+                    android:textColor="#0F172A"
+                    android:layout_marginBottom="10dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="자녀 이름 또는 기기 별칭:"
+                    android:textSize="12sp"
+                    android:textColor="#475569"
+                    android:layout_marginBottom="4dp" />
+
+                <EditText
+                    android:id="@+id/etChildName"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="예: 지우 (갤럭시 탭)"
+                    android:inputType="text"
+                    android:textSize="14sp"
+                    android:padding="12dp"
+                    android:background="#F1F5F9"
+                    android:textColor="#0F172A"
+                    android:layout_marginBottom="10dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📨 발신용 Gmail 계정 (리포트를 보낼 계정):"
+                    android:textSize="12sp"
+                    android:textColor="#475569"
+                    android:layout_marginBottom="4dp" />
+
+                <EditText
+                    android:id="@+id/etSenderEmail"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="예: jpark04092@gmail.com"
+                    android:inputType="textEmailAddress"
+                    android:textSize="14sp"
+                    android:padding="12dp"
+                    android:background="#F1F5F9"
+                    android:textColor="#0F172A"
+                    android:layout_marginBottom="10dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔑 구글 16자리 앱 비밀번호 (Google App Password):"
+                    android:textSize="12sp"
+                    android:textColor="#475569"
+                    android:layout_marginBottom="4dp" />
+
+                <EditText
+                    android:id="@+id/etSenderAppPassword"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:hint="abcd efgh ijkl mnop (공백 무관)"
+                    android:inputType="textPassword"
+                    android:textSize="14sp"
+                    android:padding="12dp"
+                    android:background="#F1F5F9"
+                    android:textColor="#0F172A"
+                    android:layout_marginBottom="10dp" />
+
+                <!-- Daily Report Schedule Time Setting -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⏰ 일일 리포트 정기 발송 시각 (기본: 22:00 / 오후 10시):"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E293B"
+                    android:layout_marginBottom="4dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="6dp">
+
+                    <EditText
+                        android:id="@+id/etReportTime"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:hint="22:00 (오후 10시)"
+                        android:inputType="time"
+                        android:textSize="14sp"
+                        android:padding="12dp"
+                        android:background="#F1F5F9"
+                        android:textColor="#0F172A"
+                        android:layout_marginEnd="8dp" />
+
+                    <Button
+                        android:id="@+id/btnSelectReportTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:text="시각 선택"
+                        android:textSize="12sp"
+                        android:backgroundTint="#475569" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvReportTimeGuide"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💡 24시간 형식(HH:mm)으로 입력하거나 [시각 선택]을 누르세요. 설정 저장 시 해당 시각에 맞춰 알람이 즉시 재등록됩니다. (예: 22:00 = 오후 10시, 21:30 = 오후 9시 30분)"
+                    android:textSize="11sp"
+                    android:textColor="#64748B"
+                    android:lineSpacingExtra="2dp"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/tvAppPasswordGuide"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💡 구글 앱 비밀번호 발급 방법: myaccount.google.com/apppasswords 접속 → 로그인 후 이름(Timesnooper) 입력 → 생성된 16자리 영문 코드를 여기에 입력하고 [설정 저장]을 누르면 스마트폰에서 학부모님 Gmail로 직접 리포트가 1초 만에 전송됩니다."
+                    android:textSize="11sp"
+                    android:textColor="#64748B"
+                    android:lineSpacingExtra="2dp"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/tvStatusLog"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="#0F172A"
+                    android:textColor="#38BDF8"
+                    android:textSize="11sp"
+                    android:padding="10dp"
+                    android:fontFamily="monospace"
+                    android:text="⚡ 대기 중: 앱 비밀번호 입력 후 [Gmail로 즉시 발송]을 누르세요."
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:weightSum="2">
+
+                    <Button
+                        android:id="@+id/btnSaveSettings"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="설정 저장"
+                        android:textSize="12sp"
+                        android:backgroundTint="#0F172A"
+                        android:layout_marginEnd="6dp" />
+
+                    <Button
+                        android:id="@+id/btnTestEmail"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Gmail로 즉시 발송"
+                        android:textSize="12sp"
+                        android:backgroundTint="#0284C7"
+                        android:layout_marginStart="6dp" />
+                </LinearLayout>
             </LinearLayout>
 
+            <!-- Permission Buttons -->
             <TextView
-                android:id="@+id/tvReportTimeGuide"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="💡 24시간 형식(HH:mm)으로 입력하거나 [시각 선택]을 누르세요. 설정 저장 시 해당 시각에 맞춰 알람이 즉시 재등록됩니다. (예: 22:00 = 오후 10시, 21:30 = 오후 9시 30분)"
-                android:textSize="11sp"
-                android:textColor="#64748B"
-                android:lineSpacingExtra="2dp"
-                android:layout_marginBottom="12dp" />
+                android:text="⚙️ 백그라운드 감시 및 시스템 권한"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#334155"
+                android:layout_marginBottom="10dp" />
 
+            <Button
+                android:id="@+id/btnUsagePermission"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="1. 사용 정보 접근 권한 허용 (필수)"
+                android:backgroundTint="#3B82F6"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnDeviceAdmin"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="2. 🛡️ 기기 관리자 활성화 (앱 임의 삭제 방지)"
+                android:backgroundTint="#0EA5E9"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnBatteryExemption"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="3. 배터리 절전모드(Doze) 무제한 예외"
+                android:backgroundTint="#475569"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnStartService"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="4. 감시 서비스 및 매일 리포트 알람 시작"
+                android:backgroundTint="#059669"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Stealth & Re-activate Buttons -->
             <TextView
-                android:id="@+id/tvAppPasswordGuide"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="💡 구글 앱 비밀번호 발급 방법: myaccount.google.com/apppasswords 접속 → 로그인 후 이름(Timesnooper) 입력 → 생성된 16자리 영문 코드를 여기에 입력하고 [설정 저장]을 누르면 스마트폰에서 학부모님 Gmail로 직접 리포트가 1초 만에 전송됩니다."
-                android:textSize="11sp"
-                android:textColor="#64748B"
-                android:lineSpacingExtra="2dp"
-                android:layout_marginBottom="12dp" />
+                android:text="🔒 스텔스(아이콘 은폐) 및 보안"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#334155"
+                android:layout_marginBottom="10dp" />
 
-            <TextView
-                android:id="@+id/tvStatusLog"
+            <Button
+                android:id="@+id/btnStealthMode"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="#0F172A"
-                android:textColor="#38BDF8"
-                android:textSize="11sp"
-                android:padding="10dp"
-                android:fontFamily="monospace"
-                android:text="⚡ 대기 중: 앱 비밀번호 입력 후 [Gmail로 즉시 발송]을 누르세요."
-                android:layout_marginBottom="12dp" />
+                android:layout_height="48dp"
+                android:text="5. 스텔스 모드 진입 (홈 화면 아이콘 숨김)"
+                android:backgroundTint="#7C3AED"
+                android:layout_marginBottom="8dp" />
 
-            <LinearLayout
+            <Button
+                android:id="@+id/btnUnhideIcon"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2">
+                android:layout_height="48dp"
+                android:text="6. 스텔스 해제 (홈 화면 아이콘 복구)"
+                android:backgroundTint="#6366F1"
+                android:layout_marginBottom="24dp" />
 
-                <Button
-                    android:id="@+id/btnSaveSettings"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:text="설정 저장"
-                    android:textSize="12sp"
-                    android:backgroundTint="#0F172A"
-                    android:layout_marginEnd="6dp" />
-
-                <Button
-                    android:id="@+id/btnTestEmail"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:text="Gmail로 즉시 발송"
-                    android:textSize="12sp"
-                    android:backgroundTint="#0284C7"
-                    android:layout_marginStart="6dp" />
-            </LinearLayout>
         </LinearLayout>
+    </ScrollView>
 
-        <TextView
+    <!-- 관리자 인증 / 초기 설정 전용 보안 오버레이 (인증 전까지 메인 화면 차단) -->
+    <LinearLayout
+        android:id="@+id/layoutLockOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp"
+        android:background="#0F172A"
+        android:visibility="visible">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="⚙️ 백그라운드 감시 및 시스템 권한"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:textColor="#334155"
-            android:layout_marginBottom="10dp" />
+            android:orientation="vertical"
+            android:background="#1E293B"
+            android:padding="24dp"
+            android:elevation="8dp">
 
-        <Button
-            android:id="@+id/btnUsagePermission"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="1. 사용 정보 접근 권한 허용 (필수)"
-            android:backgroundTint="#3B82F6"
-            android:layout_marginBottom="8dp" />
+            <TextView
+                android:id="@+id/tvLockTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔒 관리자 비밀번호 인증"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="8dp" />
 
-        <Button
-            android:id="@+id/btnDeviceAdmin"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="2. 🛡️ 기기 관리자 활성화 (앱 임의 삭제 방지)"
-            android:backgroundTint="#0EA5E9"
-            android:layout_marginBottom="8dp" />
+            <TextView
+                android:id="@+id/tvLockSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="자녀의 설정 접근을 방지하기 위해 관리자 비밀번호를 입력해주세요."
+                android:textSize="12sp"
+                android:textColor="#94A3B8"
+                android:lineSpacingExtra="2dp"
+                android:layout_marginBottom="16dp" />
 
-        <Button
-            android:id="@+id/btnBatteryExemption"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="3. 배터리 절전모드(Doze) 무제한 예외"
-            android:backgroundTint="#475569"
-            android:layout_marginBottom="8dp" />
+            <TextView
+                android:id="@+id/tvLockInputLabel1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="관리자 비밀번호:"
+                android:textSize="12sp"
+                android:textColor="#CBD5E1"
+                android:layout_marginBottom="4dp" />
 
-        <Button
-            android:id="@+id/btnStartService"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="4. 감시 서비스 및 매일 리포트 알람 시작"
-            android:backgroundTint="#059669"
-            android:layout_marginBottom="16dp" />
+            <EditText
+                android:id="@+id/etLockPasswordInput"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="비밀번호 입력"
+                android:inputType="textPassword"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#0F172A"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#64748B"
+                android:layout_marginBottom="12dp" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="🔒 스텔스(아이콘 은폐) 및 보안"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:textColor="#334155"
-            android:layout_marginBottom="10dp" />
+            <TextView
+                android:id="@+id/tvLockInputLabel2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="비밀번호 확인:"
+                android:textSize="12sp"
+                android:textColor="#CBD5E1"
+                android:visibility="gone"
+                android:layout_marginBottom="4dp" />
 
-        <Button
-            android:id="@+id/btnStealthMode"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="5. 스텔스 모드 진입 (홈 화면 아이콘 숨김)"
-            android:backgroundTint="#7C3AED"
-            android:layout_marginBottom="8dp" />
+            <EditText
+                android:id="@+id/etLockPasswordConfirm"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="비밀번호 재입력"
+                android:inputType="textPassword"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#0F172A"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#64748B"
+                android:visibility="gone"
+                android:layout_marginBottom="12dp" />
 
-        <Button
-            android:id="@+id/btnUnhideIcon"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="6. 스텔스 해제 (홈 화면 아이콘 복구)"
-            android:backgroundTint="#6366F1"
-            android:layout_marginBottom="24dp" />
+            <TextView
+                android:id="@+id/tvLockError"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚠️ 비밀번호가 일치하지 않습니다."
+                android:textSize="12sp"
+                android:textColor="#F87171"
+                android:visibility="gone"
+                android:layout_marginBottom="12dp" />
 
+            <Button
+                android:id="@+id/btnLockSubmit"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="관리자 인증 및 진입"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:backgroundTint="#2563EB"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btnLockExit"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:text="닫기 (앱 종료)"
+                android:textSize="12sp"
+                android:backgroundTint="#334155"
+                android:textColor="#94A3B8" />
+
+        </LinearLayout>
     </LinearLayout>
-</ScrollView>`
+
+</FrameLayout>`
   },
   {
     name: 'ReportPayload.kt',

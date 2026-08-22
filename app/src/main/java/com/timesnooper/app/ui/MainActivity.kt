@@ -45,10 +45,24 @@ class MainActivity : AppCompatActivity() {
         const val KEY_REPORT_TIME = "report_time"
         const val KEY_REPORT_HOUR = "report_hour"
         const val KEY_REPORT_MINUTE = "report_minute"
+        const val KEY_ADMIN_PASSWORD = "admin_password"
         const val LAUNCHER_ALIAS_CLASS = "com.timesnooper.app.ui.LauncherAlias"
     }
 
     private lateinit var prefs: SharedPreferences
+    private lateinit var scrollViewMain: android.widget.ScrollView
+    private lateinit var layoutLockOverlay: android.widget.LinearLayout
+    private lateinit var tvLockTitle: TextView
+    private lateinit var tvLockSubtitle: TextView
+    private lateinit var tvLockInputLabel1: TextView
+    private lateinit var etLockPasswordInput: EditText
+    private lateinit var tvLockInputLabel2: TextView
+    private lateinit var etLockPasswordConfirm: EditText
+    private lateinit var tvLockError: TextView
+    private lateinit var btnLockSubmit: Button
+    private lateinit var btnLockExit: Button
+
+    private lateinit var etAdminPassword: EditText
     private lateinit var etParentEmail: EditText
     private lateinit var etChildName: EditText
     private lateinit var etSenderEmail: EditText
@@ -56,12 +70,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etReportTime: EditText
     private lateinit var tvStatusLog: TextView
 
+    private var isAuthenticated = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         prefs = getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
 
+        scrollViewMain = findViewById(R.id.scrollViewMain)
+        layoutLockOverlay = findViewById(R.id.layoutLockOverlay)
+        tvLockTitle = findViewById(R.id.tvLockTitle)
+        tvLockSubtitle = findViewById(R.id.tvLockSubtitle)
+        tvLockInputLabel1 = findViewById(R.id.tvLockInputLabel1)
+        etLockPasswordInput = findViewById(R.id.etLockPasswordInput)
+        tvLockInputLabel2 = findViewById(R.id.tvLockInputLabel2)
+        etLockPasswordConfirm = findViewById(R.id.etLockPasswordConfirm)
+        tvLockError = findViewById(R.id.tvLockError)
+        btnLockSubmit = findViewById(R.id.btnLockSubmit)
+        btnLockExit = findViewById(R.id.btnLockExit)
+
+        etAdminPassword = findViewById(R.id.etAdminPassword)
         etParentEmail = findViewById(R.id.etParentEmail)
         etChildName = findViewById(R.id.etChildName)
         etSenderEmail = findViewById(R.id.etSenderEmail)
@@ -69,18 +98,23 @@ class MainActivity : AppCompatActivity() {
         etReportTime = findViewById(R.id.etReportTime)
         tvStatusLog = findViewById(R.id.tvStatusLog)
 
-        // 저장된 학부모 이메일, 발신 계정 및 리포트 발송 시각 불러오기
+        // 저장된 설정값 불러오기
+        val savedAdminPassword = prefs.getString(KEY_ADMIN_PASSWORD, "") ?: ""
         val savedParentEmail = prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com")
         val savedChildName = prefs.getString(KEY_CHILD_NAME, "자녀 (갤럭시 탭)")
         val savedSenderEmail = prefs.getString(KEY_SENDER_EMAIL, "jpark04092@gmail.com")
         val savedPassword = prefs.getString(KEY_SENDER_APP_PASSWORD, "")
         val savedReportTime = prefs.getString(KEY_REPORT_TIME, "22:00") ?: "22:00"
 
+        etAdminPassword.setText(savedAdminPassword)
         etParentEmail.setText(savedParentEmail)
         etChildName.setText(savedChildName)
         etSenderEmail.setText(savedSenderEmail)
         etSenderAppPassword.setText(savedPassword)
         etReportTime.setText(savedReportTime)
+
+        // 1. 관리자 전용 비밀번호 인증 / 초기 등록 화면 구동
+        setupAdminLock(savedInstanceState)
 
         // 시각 선택 다이얼로그 바인딩
         val timePickerAction = {
@@ -162,7 +196,7 @@ class MainActivity : AppCompatActivity() {
             disableStealthMode()
         }
 
-        // 1. 필수 사용정보 접근 권한 체크 (UsageStats)
+        // 필수 사용정보 접근 권한 체크 (UsageStats)
         if (!hasUsageStatsPermission()) {
             tvStatusLog.text = "⚠️ 주의: '사용 정보 접근 권한'이 허용되지 않았습니다. 1번 버튼을 눌러 허용해주세요."
             Toast.makeText(this, "아이 앱 사용시간 추적을 위해 '사용 정보 접근' 권한을 허용해주세요.", Toast.LENGTH_LONG).show()
@@ -172,12 +206,107 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupAdminLock(savedInstanceState: Bundle?) {
+        if (savedInstanceState != null) {
+            isAuthenticated = savedInstanceState.getBoolean("is_authenticated", false)
+        }
+
+        if (isAuthenticated) {
+            unlockUi()
+            return
+        }
+
+        val savedPassword = prefs.getString(KEY_ADMIN_PASSWORD, "") ?: ""
+        val isFirstSetup = savedPassword.isEmpty()
+
+        if (isFirstSetup) {
+            // 최초 설치 모드: 관리자 비밀번호 신규 등록 UI
+            tvLockTitle.text = "🔑 관리자 비밀번호 초기 설정"
+            tvLockSubtitle.text = "자녀의 임의 접근 및 설정 변경을 방지하기 위해 관리자(학부모) 전용 비밀번호를 설정해주세요.\n(기기 화면 잠금번호와 별개로 설정됩니다)"
+            tvLockInputLabel1.text = "새 관리자 비밀번호 (4자리 이상):"
+            etLockPasswordInput.hint = "비밀번호 입력 (숫자 PIN 또는 영문)"
+            tvLockInputLabel2.visibility = android.view.View.VISIBLE
+            etLockPasswordConfirm.visibility = android.view.View.VISIBLE
+            btnLockSubmit.text = "비밀번호 설정 및 시작"
+            btnLockExit.visibility = android.view.View.GONE
+            tvLockError.visibility = android.view.View.GONE
+
+            btnLockSubmit.setOnClickListener {
+                val p1 = etLockPasswordInput.text.toString().trim()
+                val p2 = etLockPasswordConfirm.text.toString().trim()
+
+                if (p1.length < 4) {
+                    tvLockError.text = "⚠️ 비밀번호는 최소 4자리 이상으로 설정해주세요."
+                    tvLockError.visibility = android.view.View.VISIBLE
+                    return@setOnClickListener
+                }
+                if (p1 != p2) {
+                    tvLockError.text = "⚠️ 비밀번호 확인이 일치하지 않습니다. 다시 입력해주세요."
+                    tvLockError.visibility = android.view.View.VISIBLE
+                    return@setOnClickListener
+                }
+
+                prefs.edit().putString(KEY_ADMIN_PASSWORD, p1).apply()
+                etAdminPassword.setText(p1)
+                isAuthenticated = true
+                Toast.makeText(this, "🛡️ 관리자 비밀번호가 안전하게 설정되었습니다.", Toast.LENGTH_SHORT).show()
+                unlockUi()
+            }
+        } else {
+            // 앱 실행 / 재진입 모드: 관리자 비밀번호 인증 요구 UI
+            tvLockTitle.text = "🔒 관리자 비밀번호 인증"
+            tvLockSubtitle.text = "Timesnooper 설정에 진입하려면 설정한 관리자 비밀번호를 입력해주세요."
+            tvLockInputLabel1.text = "관리자 비밀번호:"
+            etLockPasswordInput.hint = "비밀번호 입력"
+            tvLockInputLabel2.visibility = android.view.View.GONE
+            etLockPasswordConfirm.visibility = android.view.View.GONE
+            btnLockSubmit.text = "인증 및 설정 열기"
+            btnLockExit.visibility = android.view.View.VISIBLE
+            tvLockError.visibility = android.view.View.GONE
+
+            btnLockSubmit.setOnClickListener {
+                val inputPass = etLockPasswordInput.text.toString().trim()
+                val currentSavedPass = prefs.getString(KEY_ADMIN_PASSWORD, "") ?: ""
+
+                if (inputPass == currentSavedPass && inputPass.isNotEmpty()) {
+                    isAuthenticated = true
+                    Toast.makeText(this, "🔓 관리자 인증 완료", Toast.LENGTH_SHORT).show()
+                    unlockUi()
+                } else {
+                    tvLockError.text = "❌ 비밀번호가 일치하지 않습니다. 다시 입력해주세요."
+                    tvLockError.visibility = android.view.View.VISIBLE
+                    etLockPasswordInput.setText("")
+                }
+            }
+
+            btnLockExit.setOnClickListener {
+                finish()
+            }
+        }
+    }
+
+    private fun unlockUi() {
+        layoutLockOverlay.visibility = android.view.View.GONE
+        scrollViewMain.visibility = android.view.View.VISIBLE
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("is_authenticated", isAuthenticated)
+    }
+
     private fun saveEmailSettings() {
+        val adminPassword = etAdminPassword.text.toString().trim()
         val parentEmail = etParentEmail.text.toString().trim()
         val childName = etChildName.text.toString().trim()
         val senderEmail = etSenderEmail.text.toString().trim()
         val appPassword = etSenderAppPassword.text.toString().trim()
         val reportTimeStr = etReportTime.text.toString().trim().ifEmpty { "22:00" }
+
+        if (adminPassword.isNotEmpty() && adminPassword.length < 4) {
+            Toast.makeText(this, "관리자 비밀번호는 최소 4자리 이상이어야 합니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         if (parentEmail.isEmpty() || !parentEmail.contains("@")) {
             Toast.makeText(this, "수신할 학부모 이메일 주소를 올바르게 입력해주세요.", Toast.LENGTH_SHORT).show()
@@ -206,7 +335,7 @@ class MainActivity : AppCompatActivity() {
         val formattedTime = String.format(Locale.KOREA, "%02d:%02d", targetHour, targetMinute)
         etReportTime.setText(formattedTime)
 
-        prefs.edit()
+        val editor = prefs.edit()
             .putString(KEY_PARENT_EMAIL, parentEmail)
             .putString(KEY_CHILD_NAME, if (childName.isEmpty()) "자녀" else childName)
             .putString(KEY_SENDER_EMAIL, if (senderEmail.isEmpty()) parentEmail else senderEmail)
@@ -214,7 +343,11 @@ class MainActivity : AppCompatActivity() {
             .putString(KEY_REPORT_TIME, formattedTime)
             .putInt(KEY_REPORT_HOUR, targetHour)
             .putInt(KEY_REPORT_MINUTE, targetMinute)
-            .apply()
+
+        if (adminPassword.isNotEmpty()) {
+            editor.putString(KEY_ADMIN_PASSWORD, adminPassword)
+        }
+        editor.apply()
 
         // 변경된 발송 시각으로 알람 매니저 즉시 재설정
         DailyReportAlarmReceiver.scheduleDailyAlarm(this)

@@ -44,12 +44,23 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Timesnooper">
 
-        <!-- 메인 설정 화면 (직접 호출 및 다이얼/리시버 실행 가능) -->
+        <!-- 메인 설정 화면 (직접 호출, 다이얼/리시버 실행 및 안드로이드 설정 > 앱 상세정보에서 열기/실행 지원) -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
             android:label="@string/title_setup"
-            android:theme="@style/Theme.Timesnooper" />
+            android:theme="@style/Theme.Timesnooper">
+            <!-- 1. 앱 상세정보(설정 > 애플리케이션)에서 '열기(Open)' 버튼을 항상 활성화 (런처 홈 화면에는 아이콘 노출 안 됨) -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.INFO" />
+            </intent-filter>
+            <!-- 2. 안드로이드 설정 > 앱 상세정보 화면의 '앱 내 추가 설정(Preferences)' 버튼 지원 -->
+            <intent-filter>
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- 런처 아이콘 전용 alias: 스텔스 모드 시 이 alias만 비활성화하여 홈/앱스에서 깔끔히 제거 -->
         <activity-alias

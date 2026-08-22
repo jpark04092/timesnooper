@@ -213,9 +213,9 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                   <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-0.5 rounded">STEP 2</span>
                   <span className="text-xs text-slate-400 font-medium">소요시간: 1분</span>
                 </div>
-                <h3 className="font-bold text-slate-900 text-base">timesnooper APK 설치 및 3대 필수 권한 승인</h3>
+                <h3 className="font-bold text-slate-900 text-base">timesnooper APK 설치, 관리자 전용 비밀번호 지정 및 3대 필수 권한 승인</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  자녀 기기에 timesnooper APK를 설치한 뒤, 최초 1회 실행하여 다음 3대 권한을 허용합니다:
+                  자녀 기기에 timesnooper APK를 설치한 뒤, 최초 1회 실행하여 <strong>관리자(학부모) 전용 비밀번호(4자리 이상)를 설정</strong>하고 다음 3대 권한을 허용합니다 (기기 잠금 비밀번호와 별개로 Timesnooper 전용으로 보호됩니다):
                 </p>
                 <div className="space-y-2 text-xs">
                   <div className="bg-white border border-slate-200 p-2.5 rounded-lg flex items-start gap-2">
@@ -647,9 +647,10 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                     <div className="font-semibold text-blue-900">진입 순서:</div>
                     <ol className="list-decimal list-inside text-[11px] space-y-1 text-slate-600">
                       <li>기기 <strong>[설정]</strong> → <strong>[애플리케이션]</strong> (또는 앱 관리) 진입</li>
-                      <li><strong>System Time Service</strong> (timesnooper) 선택</li>
-                      <li>화면 하단의 <strong>[열기(Open)]</strong> 버튼 클릭</li>
-                      <li>열린 화면에서 <strong>[5. 스텔스 해제 (홈 화면 아이콘 복구)]</strong> 버튼 클릭</li>
+                      <li><strong>Timesnooper</strong> 선택</li>
+                      <li>화면 하단의 <strong>[열기(Open / 실행)]</strong> 버튼 또는 <strong>[앱 내 추가 설정]</strong> 클릭</li>
+                      <li>보안 잠금 화면에서 설정해 둔 <strong>관리자 비밀번호</strong> 입력 후 <strong>[인증 및 설정 열기]</strong> 클릭</li>
+                      <li>인증 완료 후 <strong>[스텔스 해제 (아이콘 복원)]</strong> 또는 원하는 설정 변경 수행</li>
                     </ol>
                   </div>
                 </div>
@@ -862,13 +863,16 @@ export const UserManualGuide: React.FC<UserManualGuideProps> = ({ onGoToAdbHub, 
                 </h3>
                 <div className="text-xs text-slate-600 leading-relaxed pl-7 space-y-1.5">
                   <p>
-                    <strong>1) 아이콘을 홈 화면에 다시 살려내기:</strong> PC와 연결 후 <code className="bg-slate-100 text-purple-700 px-1 rounded font-mono font-bold">adb shell pm enable com.timesnooper.app/.ui.MainActivity</code>를 실행하면 홈 화면에 즉시 나타납니다.
+                    <strong>1) 안드로이드 설정 앱에서 열기:</strong> [설정] → [애플리케이션] → [Timesnooper] 진입 후 하단의 <strong>[열기]</strong> 버튼 또는 <strong>[앱 내 추가 설정]</strong>을 누르면 즉시 열립니다.
                   </p>
                   <p>
                     <strong>2) 스마트폰 다이얼러로 열기:</strong> 전화 앱 다이얼에서 <code className="bg-purple-100 text-purple-900 px-1 rounded font-mono font-bold">*#*#8463#*#*</code>을 입력하면 설정 창이 바로 열립니다.
                   </p>
                   <p>
-                    <strong>3) PC에서 설정 화면만 띄우기:</strong> <code className="bg-slate-100 text-blue-700 px-1 rounded font-mono">adb shell am start -n com.timesnooper.app/.ui.MainActivity</code>를 실행하세요.
+                    <strong>3) ADB 브로드캐스트로 아이콘 복구:</strong> <code className="bg-slate-100 text-emerald-700 px-1 rounded font-mono font-bold">adb shell am broadcast -a com.timesnooper.app.ACTION_UNHIDE_ICON -p com.timesnooper.app</code>
+                  </p>
+                  <p>
+                    <strong>4) PC에서 화면만 띄우기:</strong> <code className="bg-slate-100 text-blue-700 px-1 rounded font-mono">adb shell am broadcast -a com.timesnooper.app.ACTION_LAUNCH_UI -p com.timesnooper.app</code>
                   </p>
                 </div>
               </div>
