@@ -16,7 +16,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Timesnooper 자녀 안심 케어"
+            android:text="Google Play 서비스 지원"
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#0F172A"
@@ -26,7 +26,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="자녀 기기 앱 사용시간 백그라운드 자동 수집 및 일일 리포트 전송"
+            android:text="자녀 기기 백그라운드 사용량 자동 수집 및 안심 일일 리포트"
             android:textSize="12sp"
             android:textColor="#64748B"
             android:gravity="center"

