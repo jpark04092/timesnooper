@@ -46,6 +46,9 @@ class MainActivity : AppCompatActivity() {
         const val KEY_REPORT_HOUR = "report_hour"
         const val KEY_REPORT_MINUTE = "report_minute"
         const val KEY_ADMIN_PASSWORD = "admin_password"
+        const val KEY_USAGE_LIMIT_ENABLED = "usage_limit_enabled"
+        const val KEY_USAGE_LIMIT_MINUTES = "usage_limit_minutes"
+        const val KEY_LAST_LIMIT_ALERT_DATE = "last_limit_alert_date"
         const val LAUNCHER_ALIAS_CLASS = "com.timesnooper.app.ui.LauncherAlias"
     }
 
@@ -68,6 +71,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etSenderEmail: EditText
     private lateinit var etSenderAppPassword: EditText
     private lateinit var etReportTime: EditText
+    private lateinit var cbUsageLimitEnabled: android.widget.CheckBox
+    private lateinit var llUsageLimitContainer: android.widget.LinearLayout
+    private lateinit var etUsageLimitMinutes: EditText
     private lateinit var tvStatusLog: TextView
 
     private var isAuthenticated = false
@@ -96,6 +102,9 @@ class MainActivity : AppCompatActivity() {
         etSenderEmail = findViewById(R.id.etSenderEmail)
         etSenderAppPassword = findViewById(R.id.etSenderAppPassword)
         etReportTime = findViewById(R.id.etReportTime)
+        cbUsageLimitEnabled = findViewById(R.id.cbUsageLimitEnabled)
+        llUsageLimitContainer = findViewById(R.id.llUsageLimitContainer)
+        etUsageLimitMinutes = findViewById(R.id.etUsageLimitMinutes)
         tvStatusLog = findViewById(R.id.tvStatusLog)
 
         // 저장된 설정값 불러오기
@@ -105,6 +114,8 @@ class MainActivity : AppCompatActivity() {
         val savedSenderEmail = prefs.getString(KEY_SENDER_EMAIL, "jpark04092@gmail.com")
         val savedPassword = prefs.getString(KEY_SENDER_APP_PASSWORD, "")
         val savedReportTime = prefs.getString(KEY_REPORT_TIME, "22:00") ?: "22:00"
+        val savedLimitEnabled = prefs.getBoolean(KEY_USAGE_LIMIT_ENABLED, false)
+        val savedLimitMinutes = prefs.getInt(KEY_USAGE_LIMIT_MINUTES, 120)
 
         etAdminPassword.setText(savedAdminPassword)
         etParentEmail.setText(savedParentEmail)
@@ -112,6 +123,19 @@ class MainActivity : AppCompatActivity() {
         etSenderEmail.setText(savedSenderEmail)
         etSenderAppPassword.setText(savedPassword)
         etReportTime.setText(savedReportTime)
+        cbUsageLimitEnabled.isChecked = savedLimitEnabled
+        etUsageLimitMinutes.setText(savedLimitMinutes.toString())
+        llUsageLimitContainer.visibility = if (savedLimitEnabled) android.view.View.VISIBLE else android.view.View.GONE
+
+        cbUsageLimitEnabled.setOnCheckedChangeListener { _, isChecked ->
+            llUsageLimitContainer.visibility = if (isChecked) android.view.View.VISIBLE else android.view.View.GONE
+        }
+
+        // 빠른 프리셋 버튼 연결
+        findViewById<Button>(R.id.btnPreset1Hour)?.setOnClickListener { etUsageLimitMinutes.setText("60") }
+        findViewById<Button>(R.id.btnPreset1Point5Hour)?.setOnClickListener { etUsageLimitMinutes.setText("90") }
+        findViewById<Button>(R.id.btnPreset2Hour)?.setOnClickListener { etUsageLimitMinutes.setText("120") }
+        findViewById<Button>(R.id.btnPreset3Hour)?.setOnClickListener { etUsageLimitMinutes.setText("180") }
 
         // 1. 관리자 전용 비밀번호 인증 / 초기 등록 화면 구동
         setupAdminLock(savedInstanceState)
@@ -332,6 +356,15 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        val isLimitEnabled = cbUsageLimitEnabled.isChecked
+        val limitMinutesStr = etUsageLimitMinutes.text.toString().trim()
+        val limitMinutes = limitMinutesStr.toIntOrNull() ?: 120
+
+        if (isLimitEnabled && limitMinutes <= 0) {
+            Toast.makeText(this, "일일 사용 한도 시간은 최소 1분 이상으로 입력해주세요.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val formattedTime = String.format(Locale.KOREA, "%02d:%02d", targetHour, targetMinute)
         etReportTime.setText(formattedTime)
 
@@ -343,6 +376,8 @@ class MainActivity : AppCompatActivity() {
             .putString(KEY_REPORT_TIME, formattedTime)
             .putInt(KEY_REPORT_HOUR, targetHour)
             .putInt(KEY_REPORT_MINUTE, targetMinute)
+            .putBoolean(KEY_USAGE_LIMIT_ENABLED, isLimitEnabled)
+            .putInt(KEY_USAGE_LIMIT_MINUTES, limitMinutes)
 
         if (adminPassword.isNotEmpty()) {
             editor.putString(KEY_ADMIN_PASSWORD, adminPassword)
@@ -352,12 +387,27 @@ class MainActivity : AppCompatActivity() {
         // 변경된 발송 시각으로 알람 매니저 즉시 재설정
         DailyReportAlarmReceiver.scheduleDailyAlarm(this)
 
+        // 한도 초과 알림이 켜진 경우 백그라운드 서비스에 즉시 검사 요청
+        if (isLimitEnabled) {
+            val serviceCheckIntent = Intent(this, TimesnooperMonitorService::class.java).apply {
+                action = TimesnooperMonitorService.ACTION_CHECK_LIMIT_NOW
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceCheckIntent)
+            } else {
+                startService(serviceCheckIntent)
+            }
+        }
+
         val amPm = if (targetHour < 12) "오전" else "오후"
         val displayH = if (targetHour % 12 == 0) 12 else targetHour % 12
         val displayTime = "$amPm ${displayH}시 ${targetMinute}분 ($formattedTime)"
+        val limitStatusStr = if (isLimitEnabled) " / 한도: ${limitMinutes}분 초과시 즉시알림 ON" else ""
 
         tvStatusLog.text = "💾 설정 저장 완료 (수신처: $parentEmail, 정기 발송: 매일 $displayTime$limitStatusStr)"
         Toast.makeText(this, "설정 저장 완료: 매일 $displayTime 에 리포트가 발송됩니다.$limitStatusStr", Toast.LENGTH_LONG).show()
+    }
+
     private fun sendLiveTestReport() {
         val parentEmail = etParentEmail.text.toString().trim().ifEmpty {
             prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com") ?: "jpark04092@gmail.com"

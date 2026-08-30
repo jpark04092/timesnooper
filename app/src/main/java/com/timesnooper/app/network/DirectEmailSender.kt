@@ -117,6 +117,15 @@ object DirectEmailSender {
 
             // Build MIME message
             val thresholdH = payload.thresholdMinutes / 60
+            val thresholdM = payload.thresholdMinutes % 60
+            val thresholdDurationFormatted = if (thresholdH > 0) "${thresholdH}시간 ${thresholdM}분" else "${thresholdM}분"
+
+            val subjectText = if (payload.isThresholdAlert) {
+                "🚨 [Timesnooper 사용한도 초과] ${payload.childName} 기기 일일 사용시간(${thresholdDurationFormatted}) 초과 알림 (${payload.reportDate})"
+            } else {
+                "[Timesnooper] ${payload.childName} 기기 일일 스크린타임 보고서 (${payload.reportDate})"
+            }
+            val encodedSubject = "=?UTF-8?B?" + Base64.encodeToString(subjectText.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP) + "?="
 
             val totalHours = payload.totalScreenTimeMinutes / 60
             val totalMins = payload.totalScreenTimeMinutes % 60
@@ -149,20 +158,34 @@ object DirectEmailSender {
             }
 
             val headerBg = if (payload.isThresholdAlert) "#991B1B" else "#0F172A"
+            val headerTitle = if (payload.isThresholdAlert) "🚨 [긴급 알림] 기기 사용 한도 초과 리포트" else "🛡️ Timesnooper 일일 자녀 안심 리포트"
+            val alertBannerHtml = if (payload.isThresholdAlert) """
+                <div style="background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; color: #991B1B; font-size: 13px; line-height: 1.5;">
+                    <strong style="font-size: 14px;">⚠️ 일일 사용시간 한도($thresholdDurationFormatted)를 초과하였습니다!</strong><br>
+                    설정된 일일 제한 시간에 도달하여 정기 발송 시각 이전에 즉시 경고 메일이 발송되었습니다. (현재 총 사용시간: <strong>$totalDurationFormatted</strong>)
+                </div>
+            """.trimIndent() else ""
+
+            val htmlBody = """
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <meta charset="UTF-8">
                     <title>Timesnooper 리포트</title>
                 </head>
+                <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #F8FAFC; margin: 0; padding: 20px;">
                     <div style="max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; overflow: hidden;">
                         <div style="background: $headerBg; padding: 24px; color: #FFFFFF; text-align: center;">
                             <h1 style="margin: 0; font-size: 20px; font-weight: bold; letter-spacing: -0.5px;">$headerTitle</h1>
                             <p style="margin: 6px 0 0 0; font-size: 13px; color: #E2E8F0;">${payload.childName} 기기 스크린타임 사용 분석 (${payload.reportDate})</p>
                         </div>
                         <div style="padding: 24px;">
+                            $alertBannerHtml
+                            <div style="background: #F1F5F9; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                                     <tr>
                                         <td style="color: #64748B; padding: 4px 0;">대상 기기:</td>
+                                        <td style="font-weight: bold; color: #0F172A; text-align: right; padding: 4px 0;">${payload.deviceName}</td>
                                     </tr>
                                     <tr>
                                         <td style="color: #64748B; padding: 4px 0;">자녀 별칭:</td>
@@ -180,6 +203,7 @@ object DirectEmailSender {
                             </div>
 
                             <h3 style="font-size: 15px; color: #0F172A; margin: 0 0 12px 0;">📱 앱별 사용시간 분석 (${payload.apps.size}개 앱)</h3>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                                 <thead>
                                     <tr style="background: #F8FAFC; border-bottom: 2px solid #CBD5E1; color: #475569;">
                                         <th style="padding: 8px 12px; text-align: left;">앱 이름</th>

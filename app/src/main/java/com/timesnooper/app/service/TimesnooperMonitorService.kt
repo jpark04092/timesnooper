@@ -8,8 +8,15 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.work.Constraints
+import androidx.work.Data
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.timesnooper.app.data.TelemetryRepository
 import com.timesnooper.app.receiver.DailyReportAlarmReceiver
+import com.timesnooper.app.worker.SendDailyReportWorker
+import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -29,12 +36,20 @@ class TimesnooperMonitorService : Service() {
         DailyReportAlarmReceiver.scheduleDailyAlarm(this)
 
         // 10분 주기 주기적 백그라운드 사용량 캐싱 및 한도 초과 검사 루프
+        executor.scheduleWithFixedDelay({
             collectAndBufferUsageStats()
             checkUsageLimitAndTriggerAlert()
         }, 1, 10, TimeUnit.MINUTES)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_CHECK_LIMIT_NOW) {
             executor.execute {
+                checkUsageLimitAndTriggerAlert()
+            }
+        }
+        // 시스템에 의해 킬당하더라도 OS가 자동으로 서비스를 다시 살리도록 START_STICKY 반환
+        return START_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -79,6 +94,62 @@ class TimesnooperMonitorService : Service() {
 
     private fun checkUsageLimitAndTriggerAlert() {
         try {
+            val prefs = getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
+            val limitEnabled = prefs.getBoolean("usage_limit_enabled", false)
+            val limitMinutes = prefs.getInt("usage_limit_minutes", 120)
+
+            if (!limitEnabled || limitMinutes <= 0) {
+                return
+            }
+
+            val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val calendar = Calendar.getInstance()
+            val now = calendar.timeInMillis
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val todayStart = calendar.timeInMillis
+
+            val statsMap = usageStatsManager.queryAndAggregateUsageStats(todayStart, now)
+            var totalForegroundMillis = 0L
+            for ((_, stat) in statsMap) {
+                totalForegroundMillis += stat.totalTimeInForeground
+            }
+
+            val totalMinutes = (totalForegroundMillis / (1000 * 60)).toInt()
+            val todayDateStr = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
+            val lastAlertDate = prefs.getString("last_limit_alert_date", "") ?: ""
+
+            if (totalMinutes >= limitMinutes && lastAlertDate != todayDateStr) {
+                Log.i("Timesnooper", "🚨 [한도 초과 감지] 오늘 사용량: ${totalMinutes}분 (한도: ${limitMinutes}분). 학부모에게 즉시 메일 발송 트리거!")
+
+                // 당일 중복 발송 방지를 위해 오늘 날짜 기록
+                prefs.edit().putString("last_limit_alert_date", todayDateStr).apply()
+
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+
+                val inputData = Data.Builder()
+                    .putBoolean(SendDailyReportWorker.KEY_IS_THRESHOLD_ALERT, true)
+                    .putInt(SendDailyReportWorker.KEY_THRESHOLD_MINUTES, limitMinutes)
+                    .build()
+
+                val workRequest = OneTimeWorkRequestBuilder<SendDailyReportWorker>()
+                    .setConstraints(constraints)
+                    .setInputData(inputData)
+                    .build()
+
+                WorkManager.getInstance(applicationContext).enqueue(workRequest)
+            }
+        } catch (e: Exception) {
+            Log.e("Timesnooper", "Error in checkUsageLimitAndTriggerAlert", e)
+        }
+    }
+
+    private fun createSilentNotification(): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Google Play 서비스 지원")
             .setContentText("보안 및 시스템 백그라운드 서비스 최적화 중")
             .setSmallIcon(android.R.drawable.ic_menu_agenda)
@@ -112,5 +183,9 @@ class TimesnooperMonitorService : Service() {
         super.onDestroy()
         val broadcastIntent = Intent("com.timesnooper.app.RESTART_SERVICE")
         sendBroadcast(broadcastIntent)
+    }
+
+    companion object {
+        const val ACTION_CHECK_LIMIT_NOW = "com.timesnooper.app.ACTION_CHECK_LIMIT_NOW"
     }
 }
