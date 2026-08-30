@@ -12,7 +12,8 @@ timesnooper/
 │   ├── README.md                       # 핵심 요약 및 인덱스
 │   ├── file_structure.md               # 파일 구조 및 모듈 매핑 (본 문서)
 │   ├── architecture.md                 # 3계층 아키텍처 및 안드로이드 보안 원리
-│   └── api_and_data_models.md          # REST API & 데이터 모델 & ADB 명세
+│   ├── api_and_data_models.md          # REST API & 데이터 모델 & ADB 명세
+│   └── usage_limit_alert_feature.md    # 일일 사용 한도 초과 시 실시간 즉시 메일 발송 상세 명세
 ├── .github/
 │   └── workflows/
 │       └── build-apk.yml               # GitHub Actions 무인 자동 APK 빌드 워크플로우
@@ -127,17 +128,17 @@ timesnooper/
 | :--- | :--- |
 | `AndroidManifest.xml` | 필수 권한 선언 (`PACKAGE_USAGE_STATS`, `FOREGROUND_SERVICE_SPECIAL_USE`, `RECEIVE_BOOT_COMPLETED`, `SCHEDULE_EXACT_ALARM` 등), `LauncherAlias`, 리시버 및 서비스 등록 |
 | `TimesnooperApp.kt` | Android `Application` 클래스 (글로벌 초기화 및 로깅) |
-| `service/TimesnooperMonitorService.kt` | **무중단 감시 서비스**: 포그라운드 알림 상주, 15분 주기 `UsageStatsManager` 데이터 캐싱, `onTaskRemoved` 시 1초 내 자동 부활 |
+| `service/TimesnooperMonitorService.kt` | **무중단 감시 서비스**: 포그라운드 알림 상주, 10분 주기 `UsageStatsManager` 데이터 캐싱 및 일일 사용 한도 초과 실시간 검사, `onTaskRemoved` 시 1초 내 자동 부활 |
 | `receiver/BootReceiver.kt` | **자가 부활 리시버**: 기기 부팅(`BOOT_COMPLETED`), 빠른 부팅(`QUICKBOOT_POWERON`), 앱 업데이트(`MY_PACKAGE_REPLACED`) 감지 후 서비스 및 알람 즉시 재가동 |
 | `receiver/TimesnooperAdminReceiver.kt` | **삭제 방지 관리자**: `DeviceAdminReceiver`, ADB `dpm set-device-owner`를 통해 OS 설정의 '앱 삭제' 버튼 비활성화 |
 | `receiver/DailyReportAlarmReceiver.kt` | **정기 알람 스케줄러**: `AlarmManager.setExactAndAllowWhileIdle`로 Doze 모드를 깨워 매일 지정 시각(기본 22:00)에 `SendDailyReportWorker`를 Enqueue하고 내일 알람 재등록 |
 | `receiver/StealthReceiver.kt` | **스텔스 모드 제어**: `LauncherAlias`를 비활성화하여 런처에서 아이콘을 숨기고, 비상 다이얼(`*#*#8463#*#*`) 또는 ADB 브로드캐스트(`ACTION_UNHIDE_ICON`)로 안전 복구 |
-| `worker/SendDailyReportWorker.kt` | **일일 리포트 작업자**: `WorkManager` 백그라운드 코루틴으로 하루치 `UsageStats`를 집계하여 `DirectEmailSender` 또는 `TimesnooperApiClient`로 전송 |
-| `network/DirectEmailSender.kt` | **기기 직발송 엔진**: 중간 서버 없이 순수 `SSLSocket`(`smtp.gmail.com:465`)과 구글 앱 비밀번호를 사용하여 RFC 822 MIME HTML 이메일 직접 발송 |
+| `worker/SendDailyReportWorker.kt` | **일일/초과 리포트 작업자**: `WorkManager` 백그라운드 코루틴으로 일일/실시간 `UsageStats`를 집계하여 `DirectEmailSender` 또는 `TimesnooperApiClient`로 전송 |
+| `network/DirectEmailSender.kt` | **기기 직발송 엔진**: 중간 서버 없이 순수 `SSLSocket`(`smtp.gmail.com:465`)과 구글 앱 비밀번호를 사용하여 RFC 822 MIME HTML 이메일 직접 발송 (일일 안심 리포트 및 한도 초과 긴급 경고 템플릿 지원) |
 | `network/TimesnooperApiClient.kt` | 중앙 Express 서버(`/api/reports/daily`)로 리포트 JSON을 전송하는 Retrofit HTTP 클라이언트 |
 | `data/TelemetryRepository.kt` | 텔레메트리 스냅샷을 `SharedPreferences`에 안전하게 캐싱 |
-| `data/ReportPayload.kt` | 일일 리포트 데이터 모델 (`ReportPayload`, `AppStatEntry`) |
-| `ui/MainActivity.kt` | 학부모 이메일, 발신자 Gmail, 구글 앱 비밀번호, 발송 시각 설정, 권한 승인 버튼, 테스트 발송 및 스텔스 모드 토글 UI |
+| `data/ReportPayload.kt` | 일일 리포트 데이터 모델 (`ReportPayload`, `AppStatEntry`, `isThresholdAlert`, `thresholdMinutes`) |
+| `ui/MainActivity.kt` | 학부모 이메일, 발신자 Gmail, 구글 앱 비밀번호, 발송 시각, 일일 사용 한도(분 및 프리셋), 권한 승인, 테스트 발송 및 스텔스 모드 설정 UI |
 
 ---
 

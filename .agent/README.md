@@ -21,15 +21,16 @@
 | 파일명 | 내용 | 용도 |
 | :--- | :--- | :--- |
 | [`file_structure.md`](./file_structure.md) | 전체 디렉토리 구조 및 파일별 역할 상세 매핑 | 파일 위치 탐색 및 모듈 식별 |
-| [`architecture.md`](./architecture.md) | 3계층 아키텍처, 안드로이드 3대 보안/추적 원리, 시퀀스 흐름 | 시스템 구조 및 라이프사이클 분석 |
+| [`architecture.md`](./architecture.md) | 3계층 아키텍처, 안드로이드 보안/추적 원리, 시퀀스 흐름 | 시스템 구조 및 라이프사이클 분석 |
 | [`api_and_data_models.md`](./api_and_data_models.md) | Express REST API 명세, TS 인터페이스, ADB 명령어, SharedPreferences 키 | 기능 개발, API 연동, 기기 제어 |
+| [`usage_limit_alert_feature.md`](./usage_limit_alert_feature.md) | 일일 사용 한도 초과 시 실시간 즉시 메일 발송 기능 상세 명세 | 신규 기능 파악 및 임베딩 |
 
 ---
 
-## ⚡ 3. 핵심 아키텍처 3대 원리 (Cheat Sheet)
+## ⚡ 3. 핵심 아키텍처 5대 원리 (Cheat Sheet)
 1. **무중단 백그라운드 상주**:
    - `TimesnooperMonitorService`: `FOREGROUND_SERVICE_SPECIAL_USE`, `START_STICKY`, `onTaskRemoved` 시 `AlarmManager`를 통한 1초 내 자가 부활.
-   - 15분 주기 `UsageStatsManager` 폴링 & 로컬 캐싱.
+   - 10분 주기 `UsageStatsManager` 폴링 & 한도 초과 실시간 검사.
 2. **재부팅 및 캐시 정리 후 부활**:
    - `BootReceiver` (우선순위 999): `BOOT_COMPLETED`, `LOCKED_BOOT_COMPLETED`, `QUICKBOOT_POWERON` 수신 후 포그라운드 서비스 및 데일리 알람 복구.
 3. **앱 삭제 절대 방지 (Device Owner)**:
@@ -37,6 +38,8 @@
 4. **이중 메일 발송 파이프라인**:
    - **방법 A (기기 직접 발송)**: `DirectEmailSender`가 안드로이드 기기에서 `smtp.gmail.com:465` SSL 소켓으로 학부모 Gmail로 직발송 (서버 다운 시에도 100% 동작).
    - **방법 B (서버 API 발송)**: `TimesnooperApiClient` -> Express `/api/reports/daily` -> Gemini AI 코멘트 생성 -> Nodemailer 발송.
+5. **일일 사용 한도 실시간 즉시 경고**:
+   - 설정된 사용시간(예: 120분) 초과 시 정기 발송 시각(22:00)을 기다리지 않고 `DirectEmailSender`로 즉시 긴급 리포트 발송 (당일 1회 한정 중복 방지).
 
 ---
 

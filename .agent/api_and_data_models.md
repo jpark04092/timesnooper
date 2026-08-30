@@ -135,12 +135,14 @@ export interface EmailReportLog {
 data class ReportPayload(
     val deviceId: String,
     val deviceName: String,
-    val childName: String,
-    val recipientEmail: String,
+    val childName: String = "자녀",
+    val recipientEmail: String = "jpark04092@gmail.com",
     val androidVersion: String,
     val reportDate: String,
     val totalScreenTimeMinutes: Int,
-    val apps: List<AppStatEntry>
+    val apps: List<AppStatEntry>,
+    val isThresholdAlert: Boolean = false,
+    val thresholdMinutes: Int = 0
 )
 
 data class AppStatEntry(
@@ -157,9 +159,13 @@ data class AppStatEntry(
   - `child_name` (String): 자녀 이름/기기 별칭 (기본값: `자녀`)
   - `sender_email` (String): 발신용 Gmail 계정 주소
   - `sender_app_password` (String): 발신용 16자리 구글 앱 비밀번호
+  - `admin_password` (String): 관리자 진입 보호 비밀번호
   - `report_time` (String): 정기 발송 시각 문자열 (기본값: `22:00`)
   - `report_hour` (Int): 발송 시간 (0~23, 기본값: `22`)
   - `report_minute` (Int): 발송 분 (0~59, 기본값: `0`)
+  - `usage_limit_enabled` (Boolean): 일일 사용 한도 초과 시 즉시 메일 발송 활성화 여부
+  - `usage_limit_minutes` (Int): 일일 사용 한도 분 (기본값: `120`)
+  - `last_limit_alert_date` (String): 당일 중복 발송 방지용 마지막 알림 날짜 (`yyyy-MM-dd`)
 - **`timesnooper_telemetry`** (백그라운드 캐시):
   - `last_sync_timestamp` (Long): 마지막 텔레메트리 수집 타임스탬프
   - `cached_app_count` (Int): 캐시된 앱 개수

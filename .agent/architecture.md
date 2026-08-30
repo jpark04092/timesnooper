@@ -70,41 +70,40 @@
   - `DevicePolicyManager.setUninstallBlocked(adminComponent, packageName, true)`를 호출하여 시스템 설정의 **'앱 삭제' 버튼 자체를 비활성화(회색)**.
   - 자녀가 안전모드(Safe Mode)로 부팅하더라도 관리자 권한 해제 불가.
 
-### (4) 스텔스 모드 (아이콘 숨김 & 비상 복구)
-- **원리**: `MainActivity` 본체는 활성화 상태로 두고, 런처 진입점인 `LauncherAlias` 컴포넌트만 `COMPONENT_ENABLED_STATE_DISABLED`로 전환하여 홈 화면과 앱 서랍에서 아이콘을 완벽히 제거.
-- **비상 복구 통로**:
-  1. **전화 다이얼 시크릿 코드**: `*#*#8463#*#*` (*#*#TIME#*#*) 입력 시 `StealthReceiver`가 수신하여 `MainActivity`를 호출.
-  2. **ADB 브로드캐스트**: `adb shell am broadcast -a com.timesnooper.app.ACTION_UNHIDE_ICON -p com.timesnooper.app` 실행 시 `LauncherAlias`를 즉시 복원. (Android 보안 예외 우회)
+### (5) 사용시간 한도 초과 시 실시간 즉시 경고 (Instant Usage Limit Alert)
+- **10분 주기 폴링 및 한도 검사**: `TimesnooperMonitorService`가 10분마다 오늘 00:00:00부터의 총 foreground 사용시간을 집계하여 `usage_limit_minutes` 도달 여부를 확인.
+- **Deduplication (당일 중복 발송 방지)**: `last_limit_alert_date`가 오늘 날짜와 다를 때만 `SendDailyReportWorker`를 Enqueue하고 즉시 오늘 날짜로 갱신하여 하루 1회만 발송.
+- **실시간 긴급 템플릿**: `DirectEmailSender`가 `🚨 [Timesnooper 사용한도 초과]` 제목과 긴급 경고 레드 배너를 적용한 이메일을 즉시 학부모에게 전달.
 
 ---
 
-## 📬 3. 데일리 리포트 발송 파이프라인 (시퀀스)
+## 📬 3. 데일리 리포트 및 즉시 경고 발송 파이프라인 (시퀀스)
 
 ```text
-[매일 22:00 정각]
-   |
-   v
-[AlarmManager (RTC_WAKEUP)] -> [DailyReportAlarmReceiver]
-   |
-   +---> 다음 날 22:00 알람 자동 재등록
-   |
-   v
-[WorkManager: SendDailyReportWorker (네트워크 연결 제약 조건)]
-   |
-   v 하루치 UsageStatsManager 데이터 집계 & 포맷팅
-   |
-   +---[1순위: 기기 직접 발송 (DirectEmailSender)]-----------------------+
-   |    - SharedPreferences에 16자리 구글 앱 비밀번호가 있는 경우           |
-   |    - SSLSocket -> smtp.gmail.com:465 접속                            |
-   |    - AUTH LOGIN (Base64 이메일/비밀번호) 인증                         |
-   |    - RFC 822 MIME HTML 메시지 전송                                   |
-   |    - 성공 시: 발송 완료 로그 기록 & 작업 종료                        |
-   |                                                                     |
-   +---[2순위 Fallback: 중앙 서버 발송 (TimesnooperApiClient)]-----------+
-        - 앱 비밀번호 미등록 또는 기기 발송 실패 시 실행                  |
-        - Retrofit POST /api/reports/daily                               |
-        - Express 서버 수신 -> Gemini 3.7 Flash AI 피드백 생성            |
-        - 서버 환경변수 SMTP(Nodemailer)로 발송 / 대시보드 저장          |
+[트리거 A: 매일 22:00 정각] ────────> [DailyReportAlarmReceiver] ───+
+                                                                     |
+[트리거 B: 일일 사용 한도 초과] ────> [TimesnooperMonitorService] ──+
+                                       (당일 1회 한정 중복 방지)       |
+                                                                     v
+                                                   [WorkManager: SendDailyReportWorker]
+                                                   (네트워크 연결 제약 조건 & 코루틴)
+                                                                     |
+                                                                     v 당일 UsageStatsManager 데이터 집계
+                                                                     |
+    +---[1순위: 기기 직접 발송 (DirectEmailSender)]------------------+
+    |    - SharedPreferences에 16자리 구글 앱 비밀번호가 있는 경우      |
+    |    - SSLSocket -> smtp.gmail.com:465 접속                       |
+    |    - AUTH LOGIN (Base64 이메일/비밀번호) 인증                    |
+    |    - RFC 822 MIME HTML 메시지 전송                              |
+    |      * 정기 리포트: 🛡️ 일일 안심 리포트 템플릿                    |
+    |      * 초과 알림: 🚨 한도 초과 긴급 경고 템플릿                  |
+    |    - 성공 시: 발송 완료 로그 기록 & 작업 종료                   |
+    |                                                                |
+    +---[2순위 Fallback: 중앙 서버 발송 (TimesnooperApiClient)]------+
+         - 앱 비밀번호 미등록 또는 기기 발송 실패 시 실행             |
+         - Retrofit POST /api/reports/daily                          |
+         - Express 서버 수신 -> Gemini 3.7 Flash AI 피드백 생성       |
+         - 서버 환경변수 SMTP(Nodemailer)로 발송 / 대시보드 저장     |
 ```
 
 ---
