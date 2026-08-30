@@ -365,6 +365,61 @@
                 </LinearLayout>
             </LinearLayout>
 
+            <!-- Card: Settings Backup & Restore -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#FFFFFF"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="💾 설정 안전 백업 및 원클릭 복원"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E293B"
+                    android:layout_marginBottom="6dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="💡 입력된 발송 계정 키 및 알람 시각, 관리자 PIN을 클립보드로 안전하게 백업하거나, 백업 데이터로부터 1초 만에 즉시 복원할 수 있습니다."
+                    android:textSize="11sp"
+                    android:textColor="#64748B"
+                    android:lineSpacingExtra="2dp"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:weightSum="2">
+
+                    <Button
+                        android:id="@+id/btnBackupSettings"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:text="설정 백업 (복사)"
+                        android:textSize="12sp"
+                        android:backgroundTint="#475569"
+                        android:layout_marginEnd="6dp" />
+
+                    <Button
+                        android:id="@+id/btnRestoreSettings"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:text="설정 복원 (붙여넣기)"
+                        android:textSize="12sp"
+                        android:backgroundTint="#334155"
+                        android:layout_marginStart="6dp" />
+                </LinearLayout>
+            </LinearLayout>
+
             <!-- Permission Buttons -->
             <TextView
                 android:layout_width="match_parent"

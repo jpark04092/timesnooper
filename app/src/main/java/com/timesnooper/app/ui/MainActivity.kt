@@ -32,8 +32,11 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -182,6 +185,15 @@ class MainActivity : AppCompatActivity() {
         // 테스트 메일 즉시 발송 버튼
         findViewById<Button>(R.id.btnTestEmail)?.setOnClickListener {
             sendLiveTestReport()
+        }
+
+        // 설정 백업 및 복원 버튼
+        findViewById<Button>(R.id.btnBackupSettings)?.setOnClickListener {
+            backupSettingsToClipboard()
+        }
+
+        findViewById<Button>(R.id.btnRestoreSettings)?.setOnClickListener {
+            restoreSettingsFromClipboard()
         }
 
         findViewById<Button>(R.id.btnUsagePermission)?.setOnClickListener {
@@ -643,5 +655,97 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "복구 오류: ${e.message}", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun backupSettingsToClipboard() {
+        try {
+            val json = JSONObject().apply {
+                put("app", "timesnooper")
+                put("version", 1)
+                put(KEY_ADMIN_PASSWORD, etAdminPassword.text.toString().trim())
+                put(KEY_PARENT_EMAIL, etParentEmail.text.toString().trim())
+                put(KEY_CHILD_NAME, etChildName.text.toString().trim())
+                put(KEY_SENDER_EMAIL, etSenderEmail.text.toString().trim())
+                put(KEY_SENDER_APP_PASSWORD, etSenderAppPassword.text.toString().trim())
+                put(KEY_REPORT_TIME, etReportTime.text.toString().trim().ifEmpty { "22:00" })
+                put(KEY_USAGE_LIMIT_ENABLED, cbUsageLimitEnabled.isChecked)
+                put(KEY_USAGE_LIMIT_MINUTES, etUsageLimitMinutes.text.toString().trim().toIntOrNull() ?: 120)
+            }
+
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("Timesnooper Settings Backup", json.toString(2))
+            clipboard.setPrimaryClip(clip)
+
+            AlertDialog.Builder(this)
+                .setTitle("💾 설정 백업 완료")
+                .setMessage("모든 설정(관리자 PIN, Gmail 앱 비밀번호, 알람 시각 등)이 클립보드에 복사되었습니다.\n\n안전한 메모장이나 학부모님의 카카오톡/메모 앱에 붙여넣어 보관해두시면, 언제든 1초 만에 복원하실 수 있습니다.")
+                .setPositiveButton("확인", null)
+                .show()
+
+            Toast.makeText(this, "📋 설정 백업 데이터가 클립보드에 복사되었습니다.", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "백업 오류: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun restoreSettingsFromClipboard() {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        var clipboardText = ""
+        if (clipboard.hasPrimaryClip() && (clipboard.primaryClip?.itemCount ?: 0) > 0) {
+            clipboardText = clipboard.primaryClip?.getItemAt(0)?.text?.toString() ?: ""
+        }
+
+        val input = EditText(this).apply {
+            hint = "백업된 JSON 텍스트 붙여넣기"
+            if (clipboardText.contains("timesnooper") && clipboardText.contains("{")) {
+                setText(clipboardText)
+            }
+            setPadding(32, 24, 32, 24)
+            textSize = 12f
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("📥 설정 복원")
+            .setMessage("백업해둔 설정 JSON 텍스트를 아래에 붙여넣고 [복원]을 누르세요.")
+            .setView(input)
+            .setPositiveButton("복원") { _, _ ->
+                val text = input.text.toString().trim()
+                if (text.isEmpty()) {
+                    Toast.makeText(this, "복원할 설정 데이터가 입력되지 않았습니다.", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                try {
+                    val json = JSONObject(text)
+                    val adminPass = json.optString(KEY_ADMIN_PASSWORD, "")
+                    val parentEmail = json.optString(KEY_PARENT_EMAIL, "")
+                    val childName = json.optString(KEY_CHILD_NAME, "자녀")
+                    val senderEmail = json.optString(KEY_SENDER_EMAIL, "")
+                    val appPassword = json.optString(KEY_SENDER_APP_PASSWORD, "")
+                    val reportTime = json.optString(KEY_REPORT_TIME, "22:00")
+                    val limitEnabled = json.optBoolean(KEY_USAGE_LIMIT_ENABLED, false)
+                    val limitMinutes = json.optInt(KEY_USAGE_LIMIT_MINUTES, 120)
+
+                    if (adminPass.isNotEmpty()) etAdminPassword.setText(adminPass)
+                    if (parentEmail.isNotEmpty()) etParentEmail.setText(parentEmail)
+                    if (childName.isNotEmpty()) etChildName.setText(childName)
+                    if (senderEmail.isNotEmpty()) etSenderEmail.setText(senderEmail)
+                    if (appPassword.isNotEmpty()) etSenderAppPassword.setText(appPassword)
+                    if (reportTime.isNotEmpty()) etReportTime.setText(reportTime)
+                    cbUsageLimitEnabled.isChecked = limitEnabled
+                    etUsageLimitMinutes.setText(limitMinutes.toString())
+                    llUsageLimitContainer.visibility = if (limitEnabled) android.view.View.VISIBLE else android.view.View.GONE
+
+                    saveEmailSettings()
+                    Toast.makeText(this, "🎉 설정이 성공적으로 복원 및 저장되었습니다!", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    AlertDialog.Builder(this)
+                        .setTitle("복원 실패")
+                        .setMessage("올바른 Timesnooper 백업 형식이 아닙니다.\n오류: ${e.message}")
+                        .setPositiveButton("확인", null)
+                        .show()
+                }
+            }
+            .setNegativeButton("취소", null)
+            .show()
     }
 }

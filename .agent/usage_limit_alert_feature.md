@@ -102,3 +102,4 @@ data class ReportPayload(
   - 분 단위 입력창 (`etUsageLimitMinutes`): `number` inputType
   - 빠른 프리셋 버튼: `1시간`(60m), `1.5시간`(90m), `2시간`(120m), `3시간`(180m)
 - **저장 및 유효성 검사**: 1분 이상 양수 값 검증 후 `SharedPreferences`에 저장하고, 즉시 백그라운드 서비스로 검사 인텐트 송신.
+

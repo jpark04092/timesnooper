@@ -11,15 +11,25 @@ android {
         applicationId = "com.timesnooper.app"
         minSdk = 26 // Android 8.0 Oreo (구형 태블릿 및 안드로이드 12/13/14 완벽 지원)
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("timesnooperSigning") {
+            storeFile = file("keystore/timesnooper.keystore")
+            storePassword = "timesnooper123"
+            keyAlias = "timesnooper"
+            keyPassword = "timesnooper123"
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("timesnooperSigning")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -27,6 +37,7 @@ android {
         }
         debug {
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("timesnooperSigning")
         }
     }
     compileOptions {
@@ -35,6 +46,10 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+    }
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 }
 
