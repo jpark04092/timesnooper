@@ -356,10 +356,8 @@ class MainActivity : AppCompatActivity() {
         val displayH = if (targetHour % 12 == 0) 12 else targetHour % 12
         val displayTime = "$amPm ${displayH}시 ${targetMinute}분 ($formattedTime)"
 
-        tvStatusLog.text = "💾 설정 저장 완료 (수신처: $parentEmail, 정기 발송: 매일 $displayTime)"
-        Toast.makeText(this, "설정 저장 완료: 매일 $displayTime 에 리포트가 발송됩니다.", Toast.LENGTH_LONG).show()
-    }
-
+        tvStatusLog.text = "💾 설정 저장 완료 (수신처: $parentEmail, 정기 발송: 매일 $displayTime$limitStatusStr)"
+        Toast.makeText(this, "설정 저장 완료: 매일 $displayTime 에 리포트가 발송됩니다.$limitStatusStr", Toast.LENGTH_LONG).show()
     private fun sendLiveTestReport() {
         val parentEmail = etParentEmail.text.toString().trim().ifEmpty {
             prefs.getString(KEY_PARENT_EMAIL, "jpark04092@gmail.com") ?: "jpark04092@gmail.com"

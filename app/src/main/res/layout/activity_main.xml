@@ -209,6 +209,112 @@
                     android:lineSpacingExtra="2dp"
                     android:layout_marginBottom="12dp" />
 
+                <!-- Usage Limit Threshold Alert Setting -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#E2E8F0"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="12dp" />
+
+                <CheckBox
+                    android:id="@+id/cbUsageLimitEnabled"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🚨 일일 사용시간 한도 초과 시 즉시 메일 발송"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#1E293B"
+                    android:layout_marginBottom="6dp" />
+
+                <LinearLayout
+                    android:id="@+id/llUsageLimitContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="제한 시간 설정 (분 단위):"
+                        android:textSize="12sp"
+                        android:textColor="#475569"
+                        android:layout_marginBottom="4dp" />
+
+                    <EditText
+                        android:id="@+id/etUsageLimitMinutes"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:hint="120 (분 단위, 예: 120 = 2시간)"
+                        android:inputType="number"
+                        android:textSize="14sp"
+                        android:padding="12dp"
+                        android:background="#F1F5F9"
+                        android:textColor="#0F172A"
+                        android:layout_marginBottom="6dp" />
+
+                    <!-- Quick Preset Buttons -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="6dp">
+
+                        <Button
+                            android:id="@+id/btnPreset1Hour"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:text="1시간"
+                            android:textSize="11sp"
+                            android:backgroundTint="#64748B"
+                            android:layout_marginEnd="4dp"
+                            android:padding="0dp" />
+
+                        <Button
+                            android:id="@+id/btnPreset1Point5Hour"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:text="1.5시간"
+                            android:textSize="11sp"
+                            android:backgroundTint="#64748B"
+                            android:layout_marginEnd="4dp"
+                            android:padding="0dp" />
+
+                        <Button
+                            android:id="@+id/btnPreset2Hour"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:text="2시간"
+                            android:textSize="11sp"
+                            android:backgroundTint="#64748B"
+                            android:layout_marginEnd="4dp"
+                            android:padding="0dp" />
+
+                        <Button
+                            android:id="@+id/btnPreset3Hour"
+                            android:layout_width="0dp"
+                            android:layout_height="36dp"
+                            android:layout_weight="1"
+                            android:text="3시간"
+                            android:textSize="11sp"
+                            android:backgroundTint="#64748B"
+                            android:padding="0dp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvUsageLimitGuide"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="💡 하루 동안 자녀 기기의 총 사용 시간이 설정값(예: 120분)에 도달하면, 밤 정기 시각을 기다리지 않고 학부모 이메일로 즉시 경고 리포트가 발송됩니다. (당일 1회 한정 발송)"
+                        android:textSize="11sp"
+                        android:textColor="#64748B"
+                        android:lineSpacingExtra="2dp" />
+                </LinearLayout>
+
                 <TextView
                     android:id="@+id/tvAppPasswordGuide"
                     android:layout_width="match_parent"

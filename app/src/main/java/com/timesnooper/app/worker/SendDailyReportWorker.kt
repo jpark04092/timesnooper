@@ -19,24 +19,43 @@ class SendDailyReportWorker(
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
 
+    companion object {
+        const val KEY_IS_THRESHOLD_ALERT = "is_threshold_alert"
+        const val KEY_THRESHOLD_MINUTES = "threshold_minutes"
+    }
+
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
-            Log.i("Timesnooper", "Executing SendDailyReportWorker...")
+            val isThresholdAlert = inputData.getBoolean(KEY_IS_THRESHOLD_ALERT, false)
+            val thresholdMinutes = inputData.getInt(KEY_THRESHOLD_MINUTES, 0)
+            Log.i("Timesnooper", "Executing SendDailyReportWorker (isThresholdAlert=$isThresholdAlert, thresholdMinutes=$thresholdMinutes)...")
 
             val usageStatsManager = applicationContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val packageManager = applicationContext.packageManager
 
             val calendar = Calendar.getInstance()
             val endTime = calendar.timeInMillis
-            calendar.add(Calendar.DAY_OF_YEAR, -1)
-            val startTime = calendar.timeInMillis
+            
+            // 오늘 00:00:00 기준으로 시작 시각 설정
+            val startCal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            // 만약 자정 직후라 범위가 너무 좁고 정기 리포트인 경우 이전 24시간 범위 fallback
+            val startTime = if (!isThresholdAlert && endTime - startCal.timeInMillis < 60 * 60 * 1000L) {
+                endTime - (24 * 60 * 60 * 1000L)
+            } else {
+                startCal.timeInMillis
+            }
 
             val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
             val appStatList = mutableListOf<AppStatEntry>()
             var totalTimeMillis = 0L
 
             for ((pkgName, stat) in statsMap) {
-                if (stat.totalTimeInForeground > 60 * 1000) { // 1분 이상 사용된 앱만
+                if (stat.totalTimeInForeground > 30 * 1000) { // 30초 이상 사용된 앱
                     totalTimeMillis += stat.totalTimeInForeground
                     val appName = try {
                         val appInfo = packageManager.getApplicationInfo(pkgName, 0)
@@ -49,7 +68,7 @@ class SendDailyReportWorker(
                         AppStatEntry(
                             packageName = pkgName,
                             appName = appName,
-                            durationMinutes = (stat.totalTimeInForeground / (1000 * 60)).toInt(),
+                            durationMinutes = Math.max(1, (stat.totalTimeInForeground / (1000 * 60)).toInt()),
                             lastUsedTime = stat.lastTimeUsed
                         )
                     )
@@ -75,7 +94,9 @@ class SendDailyReportWorker(
                 androidVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
                 reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
                 totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
-                apps = appStatList
+                apps = appStatList,
+                isThresholdAlert = isThresholdAlert,
+                thresholdMinutes = thresholdMinutes
             )
 
             // 1. 1차 주 발송지 시도

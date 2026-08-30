@@ -17,5 +17,7 @@ data class ReportPayload(
     @SerializedName("androidVersion") val androidVersion: String,
     @SerializedName("reportDate") val reportDate: String,
     @SerializedName("totalScreenTimeMinutes") val totalScreenTimeMinutes: Int,
-    @SerializedName("apps") val apps: List<AppStatEntry>
+    @SerializedName("apps") val apps: List<AppStatEntry>,
+    @SerializedName("isThresholdAlert") val isThresholdAlert: Boolean = false,
+    @SerializedName("thresholdMinutes") val thresholdMinutes: Int = 0
 )
