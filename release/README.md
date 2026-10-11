@@ -4,8 +4,8 @@ GitHub Actions 자동 빌드 워크플로우에 의해 생성된 최신 안드�
 
 - **최신 디버그 APK**: timesnooper-debug.apk (또는 app-debug.apk)
 - **최신 릴리즈 APK**: timesnooper-release.apk
-- **빌드 일시**: 2026-08-30 10:05:18 UTC
-- **트리거 커밋**: df370d060a936b602408b932de418cd68472a4e8
+- **빌드 일시**: 2026-10-11 05:36:27 UTC
+- **트리거 커밋**: 003b21d171164e487e981435d0ec1d6f6247a755
 
 ## 다운로드 및 기기 설치 방법
 1. GitHub 웹에서 timesnooper-debug.apk 파일을 클릭한 후 Download 버튼을 눌러 스마트폰/태블릿으로 다운로드합니다.
