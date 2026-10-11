@@ -30,53 +30,9 @@ class SendDailyReportWorker(
             val thresholdMinutes = inputData.getInt(KEY_THRESHOLD_MINUTES, 0)
             Log.i("Timesnooper", "Executing SendDailyReportWorker (isThresholdAlert=$isThresholdAlert, thresholdMinutes=$thresholdMinutes)...")
 
-            val usageStatsManager = applicationContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-            val packageManager = applicationContext.packageManager
-
-            val calendar = Calendar.getInstance()
-            val endTime = calendar.timeInMillis
-            
-            // 오늘 00:00:00 기준으로 시작 시각 설정
-            val startCal = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            // 만약 자정 직후라 범위가 너무 좁고 정기 리포트인 경우 이전 24시간 범위 fallback
-            val startTime = if (!isThresholdAlert && endTime - startCal.timeInMillis < 60 * 60 * 1000L) {
-                endTime - (24 * 60 * 60 * 1000L)
-            } else {
-                startCal.timeInMillis
-            }
-
-            val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-            val appStatList = mutableListOf<AppStatEntry>()
-            var totalTimeMillis = 0L
-
-            for ((pkgName, stat) in statsMap) {
-                if (stat.totalTimeInForeground > 30 * 1000) { // 30초 이상 사용된 앱
-                    totalTimeMillis += stat.totalTimeInForeground
-                    val appName = try {
-                        val appInfo = packageManager.getApplicationInfo(pkgName, 0)
-                        packageManager.getApplicationLabel(appInfo).toString()
-                    } catch (e: Exception) {
-                        pkgName
-                    }
-
-                    appStatList.add(
-                        AppStatEntry(
-                            packageName = pkgName,
-                            appName = appName,
-                            durationMinutes = Math.max(1, (stat.totalTimeInForeground / (1000 * 60)).toInt()),
-                            lastUsedTime = stat.lastTimeUsed
-                        )
-                    )
-                }
-            }
-
-            // 사용시간 내림차순 정렬
-            appStatList.sortByDescending { it.durationMinutes }
+            val usageResult = com.timesnooper.app.data.UsageStatsCollector.collectTodayUsage(applicationContext)
+            val appStatList = usageResult.apps
+            val totalScreenTimeMinutes = usageResult.totalScreenTimeMinutes
 
             val prefs = applicationContext.getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
             val parentEmail = prefs.getString("parent_email", "jpark04092@gmail.com") ?: "jpark04092@gmail.com"
@@ -93,7 +49,7 @@ class SendDailyReportWorker(
                 recipientEmail = parentEmail,
                 androidVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
                 reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
-                totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
+                totalScreenTimeMinutes = totalScreenTimeMinutes,
                 apps = appStatList,
                 isThresholdAlert = isThresholdAlert,
                 thresholdMinutes = thresholdMinutes

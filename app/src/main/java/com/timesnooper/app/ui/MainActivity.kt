@@ -452,51 +452,24 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "$parentEmail 로 리포트 발송 중...", Toast.LENGTH_SHORT).show()
 
         lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-                val calendar = Calendar.getInstance()
-                val endTime = calendar.timeInMillis
-                calendar.add(Calendar.DAY_OF_YEAR, -1)
-                val startTime = calendar.timeInMillis
+                val usageResult = com.timesnooper.app.data.UsageStatsCollector.collectTodayUsage(this@MainActivity)
+                val appStatList = usageResult.apps.toMutableList()
+                var totalScreenTimeMinutes = usageResult.totalScreenTimeMinutes
 
-                val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-                val appStatList = mutableListOf<AppStatEntry>()
-                var totalTimeMillis = 0L
-
-                for ((pkgName, stat) in statsMap) {
-                    if (stat.totalTimeInForeground > 10 * 1000) {
-                        totalTimeMillis += stat.totalTimeInForeground
-                        val appLabel = try {
-                            val info = packageManager.getApplicationInfo(pkgName, 0)
-                            packageManager.getApplicationLabel(info).toString()
-                        } catch (e: Exception) {
-                            pkgName
-                        }
-                        appStatList.add(
-                            AppStatEntry(
-                                packageName = pkgName,
-                                appName = appLabel,
-                                durationMinutes = Math.max(1, (stat.totalTimeInForeground / (1000 * 60)).toInt()),
-                                lastUsedTime = stat.lastTimeUsed
-                            )
-                        )
-                    }
-                }
-
-                // 앱 목록이 비어있는 경우 (방금 권한 승인하여 10초 이상 기록이 없는 경우) 현재 앱 샘플 추가
+                // 앱 목록이 비어있는 경우 (신규 설치 직후 테스트 발송 시) 기본 항목 표시
                 if (appStatList.isEmpty()) {
                     appStatList.add(
                         AppStatEntry(
                             packageName = packageName,
                             appName = "Timesnooper (초기 연동)",
-                            durationMinutes = 5,
+                            durationMinutes = 1,
                             lastUsedTime = System.currentTimeMillis()
                         )
                     )
-                    totalTimeMillis = 5 * 60 * 1000L
+                    if (totalScreenTimeMinutes == 0) {
+                        totalScreenTimeMinutes = 1
+                    }
                 }
-
-                appStatList.sortByDescending { it.durationMinutes }
 
                 val payload = ReportPayload(
                     deviceId = Build.MODEL ?: "android_device",
@@ -505,7 +478,7 @@ class MainActivity : AppCompatActivity() {
                     recipientEmail = parentEmail,
                     androidVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
                     reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
-                    totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
+                    totalScreenTimeMinutes = totalScreenTimeMinutes,
                     apps = appStatList
                 )
 

@@ -836,44 +836,17 @@ class SendDailyReportWorker(
         try {
             Log.i("Timesnooper", "Executing SendDailyReportWorker...")
 
-            val usageStatsManager = applicationContext.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-            val packageManager = applicationContext.packageManager
-
-            val calendar = Calendar.getInstance()
-            val endTime = calendar.timeInMillis
-            calendar.add(Calendar.DAY_OF_YEAR, -1)
-            val startTime = calendar.timeInMillis
-
-            val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-            val appStatList = mutableListOf<AppStatEntry>()
-            var totalTimeMillis = 0L
-
-            for ((pkgName, stat) in statsMap) {
-                if (stat.totalTimeInForeground > 60 * 1000) {
-                    totalTimeMillis += stat.totalTimeInForeground
-                    val appName = try {
-                        val appInfo = packageManager.getApplicationInfo(pkgName, 0)
-                        packageManager.getApplicationLabel(appInfo).toString()
-                    } catch (e: Exception) {
-                        pkgName
-                    }
-
-                    appStatList.add(
-                        AppStatEntry(
-                            packageName = pkgName,
-                            appName = appName,
-                            durationMinutes = (stat.totalTimeInForeground / (1000 * 60)).toInt(),
-                            lastUsedTime = stat.lastTimeUsed
-                        )
-                    )
-                }
-            }
-
-            appStatList.sortByDescending { it.durationMinutes }
+            val usageResult = com.timesnooper.app.data.UsageStatsCollector.collectTodayUsage(applicationContext)
+            val appStatList = usageResult.apps
+            val totalScreenTimeMinutes = usageResult.totalScreenTimeMinutes
 
             val prefs = applicationContext.getSharedPreferences("timesnooper_prefs", Context.MODE_PRIVATE)
             val parentEmail = prefs.getString("parent_email", "jpark04092@gmail.com") ?: "jpark04092@gmail.com"
             val childName = prefs.getString("child_name", "자녀") ?: "자녀"
+            val senderEmail = prefs.getString("sender_email", parentEmail) ?: parentEmail
+            val appPassword = prefs.getString("sender_app_password", "") ?: ""
+            val backupSenderEmail = prefs.getString("backup_sender_email", "") ?: ""
+            val backupAppPassword = prefs.getString("backup_sender_app_password", "") ?: ""
 
             val payload = ReportPayload(
                 deviceId = Build.MODEL ?: "unknown_device",
@@ -882,9 +855,22 @@ class SendDailyReportWorker(
                 recipientEmail = parentEmail,
                 androidVersion = "Android \${Build.VERSION.RELEASE} (API \${Build.VERSION.SDK_INT})",
                 reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
-                totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
+                totalScreenTimeMinutes = totalScreenTimeMinutes,
                 apps = appStatList
             )
+
+            // 1. 1차 주 발송지 시도
+            if (appPassword.isNotBlank()) {
+                val directResult = com.timesnooper.app.network.DirectEmailSender.sendReportViaDirectSmtp(
+                    payload = payload,
+                    senderEmail = senderEmail,
+                    senderAppPassword = appPassword
+                )
+                if (directResult.isSuccess) {
+                    Log.i("Timesnooper", "Direct Gmail Daily Report successfully sent via primary sender ($senderEmail) to $parentEmail!")
+                    return@withContext Result.success()
+                }
+            }
 
             val response = TimesnooperApiClient.sendDailyReport(payload)
             if (response.isSuccessful) {
@@ -1300,49 +1286,23 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-                val calendar = Calendar.getInstance()
-                val endTime = calendar.timeInMillis
-                calendar.add(Calendar.DAY_OF_YEAR, -1)
-                val startTime = calendar.timeInMillis
-
-                val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
-                val appStatList = mutableListOf<AppStatEntry>()
-                var totalTimeMillis = 0L
-
-                for ((pkgName, stat) in statsMap) {
-                    if (stat.totalTimeInForeground > 10 * 1000) {
-                        totalTimeMillis += stat.totalTimeInForeground
-                        val appLabel = try {
-                            val info = packageManager.getApplicationInfo(pkgName, 0)
-                            packageManager.getApplicationLabel(info).toString()
-                        } catch (e: Exception) {
-                            pkgName
-                        }
-                        appStatList.add(
-                            AppStatEntry(
-                                packageName = pkgName,
-                                appName = appLabel,
-                                durationMinutes = Math.max(1, (stat.totalTimeInForeground / (1000 * 60)).toInt()),
-                                lastUsedTime = stat.lastTimeUsed
-                            )
-                        )
-                    }
-                }
+                val usageResult = com.timesnooper.app.data.UsageStatsCollector.collectTodayUsage(this@MainActivity)
+                val appStatList = usageResult.apps.toMutableList()
+                var totalScreenTimeMinutes = usageResult.totalScreenTimeMinutes
 
                 if (appStatList.isEmpty()) {
                     appStatList.add(
                         AppStatEntry(
                             packageName = packageName,
                             appName = "Timesnooper (초기 연동)",
-                            durationMinutes = 5,
+                            durationMinutes = 1,
                             lastUsedTime = System.currentTimeMillis()
                         )
                     )
-                    totalTimeMillis = 5 * 60 * 1000L
+                    if (totalScreenTimeMinutes == 0) {
+                        totalScreenTimeMinutes = 1
+                    }
                 }
-
-                appStatList.sortByDescending { it.durationMinutes }
 
                 val payload = ReportPayload(
                     deviceId = Build.MODEL ?: "android_device",
@@ -1351,7 +1311,7 @@ class MainActivity : AppCompatActivity() {
                     recipientEmail = parentEmail,
                     androidVersion = "Android \${Build.VERSION.RELEASE} (API \${Build.VERSION.SDK_INT})",
                     reportDate = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date()),
-                    totalScreenTimeMinutes = (totalTimeMillis / (1000 * 60)).toInt(),
+                    totalScreenTimeMinutes = totalScreenTimeMinutes,
                     apps = appStatList
                 )
 
@@ -2099,6 +2059,279 @@ data class ReportPayload(
     @SerializedName("totalScreenTimeMinutes") val totalScreenTimeMinutes: Int,
     @SerializedName("apps") val apps: List<AppStatEntry>
 )`
+  },
+  {
+    name: 'UsageStatsCollector.kt',
+    path: 'app/src/main/java/com/timesnooper/app/data/UsageStatsCollector.kt',
+    language: 'kotlin',
+    description: 'UsageEvents 기반 정밀 스크린타임 측정기 (오늘 00:00:00 기준, 화면 꺼짐 배제, 시스템/런처/키보드 필터링)',
+    content: `package com.timesnooper.app.data
+
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.PowerManager
+import android.util.Log
+import android.view.inputmethod.InputMethodManager
+import java.util.*
+
+object UsageStatsCollector {
+
+    data class UsageResult(
+        val totalScreenTimeMinutes: Int,
+        val apps: List<AppStatEntry>
+    )
+
+    fun collectTodayUsage(context: Context): UsageResult {
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startTime = calendar.timeInMillis
+        val endTime = System.currentTimeMillis()
+
+        return collectUsageBetween(context, startTime, endTime)
+    }
+
+    fun collectUsageBetween(context: Context, startTime: Long, endTime: Long): UsageResult {
+        val packageManager = context.packageManager
+        val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: return UsageResult(0, emptyList())
+
+        val ignoredPackages = getIgnoredPackages(context, packageManager)
+
+        val eventStats = queryUsageEventsAccurately(
+            context = context,
+            usageStatsManager = usageStatsManager,
+            startTime = startTime,
+            endTime = endTime,
+            ignoredPackages = ignoredPackages
+        )
+
+        val appTimeMap = if (eventStats.appDurations.isEmpty()) {
+            queryFallbackUsageStats(usageStatsManager, startTime, endTime, ignoredPackages, packageManager)
+        } else {
+            eventStats.appDurations
+        }
+
+        val appStatList = mutableListOf<AppStatEntry>()
+        for ((pkgName, durationMillis) in appTimeMap) {
+            val minutes = (durationMillis / (1000 * 60)).toInt()
+            if (minutes < 1) continue
+
+            val launchIntent = packageManager.getLaunchIntentForPackage(pkgName)
+            if (launchIntent == null && !isAllowedUserFacingApp(pkgName)) {
+                continue
+            }
+
+            val appName = try {
+                val appInfo = packageManager.getApplicationInfo(pkgName, 0)
+                packageManager.getApplicationLabel(appInfo).toString()
+            } catch (e: Exception) {
+                pkgName
+            }
+
+            val lastUsed = eventStats.appLastUsed[pkgName] ?: endTime
+
+            appStatList.add(
+                AppStatEntry(
+                    packageName = pkgName,
+                    appName = appName,
+                    durationMinutes = minutes,
+                    lastUsedTime = lastUsed
+                )
+            )
+        }
+
+        appStatList.sortByDescending { it.durationMinutes }
+
+        val totalMinutes = if (eventStats.totalScreenOnMillis > 0) {
+            (eventStats.totalScreenOnMillis / (1000 * 60)).toInt()
+        } else {
+            val maxPossibleMinutes = ((endTime - startTime) / (1000 * 60)).toInt().coerceAtLeast(0)
+            val sumMinutes = appStatList.sumOf { it.durationMinutes }
+            sumMinutes.coerceAtMost(maxPossibleMinutes)
+        }
+
+        return UsageResult(
+            totalScreenTimeMinutes = totalMinutes,
+            apps = appStatList
+        )
+    }
+
+    private data class ParsedEventStats(
+        val appDurations: Map<String, Long>,
+        val appLastUsed: Map<String, Long>,
+        val totalScreenOnMillis: Long
+    )
+
+    private fun queryUsageEventsAccurately(
+        context: Context,
+        usageStatsManager: UsageStatsManager,
+        startTime: Long,
+        endTime: Long,
+        ignoredPackages: Set<String>
+    ): ParsedEventStats {
+        val appDurationMap = mutableMapOf<String, Long>()
+        val appLastUsedMap = mutableMapOf<String, Long>()
+        var totalScreenOnMillis = 0L
+
+        try {
+            val usageEvents = usageStatsManager.queryEvents(startTime, endTime) ?: return ParsedEventStats(emptyMap(), emptyMap(), 0L)
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+            var isScreenOn = powerManager?.isInteractive ?: true
+
+            var currentPkg: String? = null
+            var currentEventStart: Long = 0L
+            var screenOnStart: Long = if (isScreenOn) startTime else 0L
+
+            val event = UsageEvents.Event()
+            while (usageEvents.hasNextEvent()) {
+                usageEvents.getNextEvent(event)
+                val eventTime = event.timeStamp
+                if (eventTime < startTime || eventTime > endTime) continue
+
+                when (event.eventType) {
+                    UsageEvents.Event.SCREEN_INTERACTIVE -> {
+                        if (!isScreenOn) {
+                            isScreenOn = true
+                            screenOnStart = eventTime
+                        }
+                    }
+                    UsageEvents.Event.SCREEN_NON_INTERACTIVE -> {
+                        if (isScreenOn) {
+                            if (screenOnStart > 0) {
+                                totalScreenOnMillis += (eventTime - screenOnStart).coerceAtLeast(0L)
+                                screenOnStart = 0L
+                            }
+                            if (currentPkg != null && currentEventStart > 0) {
+                                val elapsed = (eventTime - currentEventStart).coerceAtLeast(0L)
+                                appDurationMap[currentPkg!!] = (appDurationMap[currentPkg!!] ?: 0L) + elapsed
+                                appLastUsedMap[currentPkg!!] = eventTime
+                                currentPkg = null
+                                currentEventStart = 0L
+                            }
+                            isScreenOn = false
+                        }
+                    }
+                    UsageEvents.Event.ACTIVITY_RESUMED -> {
+                        val pkg = event.packageName
+                        if (isScreenOn) {
+                            if (currentPkg != null && currentEventStart > 0) {
+                                val elapsed = (eventTime - currentEventStart).coerceAtLeast(0L)
+                                appDurationMap[currentPkg!!] = (appDurationMap[currentPkg!!] ?: 0L) + elapsed
+                                appLastUsedMap[currentPkg!!] = eventTime
+                            }
+
+                            if (pkg != null && !ignoredPackages.contains(pkg)) {
+                                currentPkg = pkg
+                                currentEventStart = eventTime
+                                appLastUsedMap[pkg] = eventTime
+                            } else {
+                                currentPkg = null
+                                currentEventStart = 0L
+                            }
+                        }
+                    }
+                    UsageEvents.Event.ACTIVITY_PAUSED,
+                    UsageEvents.Event.ACTIVITY_STOPPED -> {
+                        val pkg = event.packageName
+                        if (currentPkg != null && currentPkg == pkg && currentEventStart > 0) {
+                            val elapsed = (eventTime - currentEventStart).coerceAtLeast(0L)
+                            appDurationMap[currentPkg!!] = (appDurationMap[currentPkg!!] ?: 0L) + elapsed
+                            appLastUsedMap[currentPkg!!] = eventTime
+                            currentPkg = null
+                            currentEventStart = 0L
+                        }
+                    }
+                }
+            }
+
+            if (isScreenOn) {
+                if (screenOnStart > 0) {
+                    totalScreenOnMillis += (endTime - screenOnStart).coerceAtLeast(0L)
+                }
+                if (currentPkg != null && currentEventStart > 0) {
+                    val elapsed = (endTime - currentEventStart).coerceAtLeast(0L)
+                    appDurationMap[currentPkg!!] = (appDurationMap[currentPkg!!] ?: 0L) + elapsed
+                    appLastUsedMap[currentPkg!!] = endTime
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("Timesnooper", "Failed to query UsageEvents accurately", e)
+        }
+
+        return ParsedEventStats(appDurationMap, appLastUsedMap, totalScreenOnMillis)
+    }
+
+    private fun queryFallbackUsageStats(
+        usageStatsManager: UsageStatsManager,
+        startTime: Long,
+        endTime: Long,
+        ignoredPackages: Set<String>,
+        packageManager: PackageManager
+    ): Map<String, Long> {
+        val fallbackMap = mutableMapOf<String, Long>()
+        try {
+            val statsMap = usageStatsManager.queryAndAggregateUsageStats(startTime, endTime)
+            for ((pkg, stat) in statsMap) {
+                if (ignoredPackages.contains(pkg)) continue
+                if (packageManager.getLaunchIntentForPackage(pkg) == null && !isAllowedUserFacingApp(pkg)) continue
+                if (stat.lastTimeUsed < startTime) continue
+                if (stat.totalTimeInForeground > 60 * 1000) {
+                    fallbackMap[pkg] = stat.totalTimeInForeground
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("Timesnooper", "Fallback usage stats query failed", e)
+        }
+        return fallbackMap
+    }
+
+    private fun getIgnoredPackages(context: Context, pm: PackageManager): Set<String> {
+        val ignored = mutableSetOf<String>()
+        ignored.add(context.packageName)
+        ignored.add("android")
+        ignored.add("com.android.systemui")
+        ignored.add("com.google.android.gms")
+        ignored.add("com.google.android.gsf")
+        ignored.add("com.google.android.googlequicksearchbox")
+
+        try {
+            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+            }
+            val homeResolvers = pm.queryIntentActivities(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+            for (ri in homeResolvers) {
+                ri.activityInfo?.packageName?.let { ignored.add(it) }
+            }
+        } catch (e: Exception) {
+            Log.w("Timesnooper", "Failed to query launcher package", e)
+        }
+
+        try {
+            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.enabledInputMethodList?.forEach { imi ->
+                ignored.add(imi.packageName)
+            }
+        } catch (e: Exception) {
+            Log.w("Timesnooper", "Failed to query keyboard packages", e)
+        }
+
+        return ignored
+    }
+
+    private fun isAllowedUserFacingApp(pkgName: String): Boolean {
+        return pkgName.contains("youtube") ||
+                pkgName.contains("chrome") ||
+                pkgName.contains("browser") ||
+                pkgName.contains("kakao")
+    }
+}\`
   },
   {
     name: 'TimesnooperApiClient.kt',

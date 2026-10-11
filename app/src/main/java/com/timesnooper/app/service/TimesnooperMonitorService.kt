@@ -71,12 +71,13 @@ class TimesnooperMonitorService : Service() {
 
     private fun collectAndBufferUsageStats() {
         try {
-            val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-            val calendar = Calendar.getInstance()
-            val endTime = calendar.timeInMillis
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
+            val endTime = System.currentTimeMillis()
+            val calendar = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
             val startTime = calendar.timeInMillis
 
             val statsList = usageStatsManager.queryUsageStats(
