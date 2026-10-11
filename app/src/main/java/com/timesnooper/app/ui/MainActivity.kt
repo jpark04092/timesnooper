@@ -452,6 +452,7 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, "$parentEmail 로 리포트 발송 중...", Toast.LENGTH_SHORT).show()
 
         lifecycleScope.launch(Dispatchers.IO) {
+            try {
                 val usageResult = com.timesnooper.app.data.UsageStatsCollector.collectTodayUsage(this@MainActivity)
                 val appStatList = usageResult.apps.toMutableList()
                 var totalScreenTimeMinutes = usageResult.totalScreenTimeMinutes
