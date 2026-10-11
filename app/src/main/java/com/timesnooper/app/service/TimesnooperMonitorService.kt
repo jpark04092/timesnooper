@@ -71,6 +71,7 @@ class TimesnooperMonitorService : Service() {
 
     private fun collectAndBufferUsageStats() {
         try {
+            val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val endTime = System.currentTimeMillis()
             val calendar = Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, 0)
